@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     MAX_FAILED_ATTEMPTS: int = 5
     LOCKOUT_DURATION_SECONDS: int = 900  # 15 Minutes
 
+    # Transactional SMTP mail relay configs
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.brevo.com")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", 587))
+    SMTP_USERNAME: str = os.getenv("SMTP_USERNAME", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "alerts@hostelmint.com")
+
     class Config:
         env_file = ".env"
 

@@ -18,6 +18,7 @@ This specification details the database schema configurations and backend API mi
 > 8. **API Pagination**: All list-fetching endpoints (e.g. searching residents, fetching logs) must implement standard pagination via limit and offset parameters to prevent scale degradation.
 > 9. **Soft Deletes**: To prevent accidental data loss and protect audit history, record deletion must be soft-deleted using flags (`is_deleted = TRUE` and timestamping `deleted_at`) rather than hard SQL deletions.
 > 10. **Brute-force Auth Mitigation**: Rate limiting is enforced on login endpoints using Redis key counters to temporarily block accounts after 5 failed attempts in 15 minutes.
+> 11. **Passwordless OTP Login & Reset**: Implemented forgot password OTP verification and passwordless login verification via Redis keys and SMTP email relays.
 
 ---
 
@@ -522,11 +523,11 @@ All list-fetching API endpoints return data nested inside the following envelope
 ### 2.1 Auth & Tenant Service
 
 #### 1. Super Admin Login
-* **Endpoint**: `POST /api/auth/super-admin/login`
+* **Endpoint**: `POST /api/v1/auth/login`
 * **Request**:
   ```json
   {
-    "email": "superadmin@hostelhub.com",
+    "email": "superadmin@hostelmint.com",
     "password": "SecurePassword123"
   }
   ```
@@ -540,11 +541,11 @@ All list-fetching API endpoints return data nested inside the following envelope
   ```
 
 #### 2. Owner Login
-* **Endpoint**: `POST /api/auth/owner/login`
+* **Endpoint**: `POST /api/v1/auth/login`
 * **Request**:
   ```json
   {
-    "email": "owner@hostelchain.com",
+    "email": "owner@email.com",
     "password": "TemporaryPassword"
   }
   ```
@@ -558,7 +559,7 @@ All list-fetching API endpoints return data nested inside the following envelope
   ```
 
 #### 3. Change Password (Enforce Reset)
-* **Endpoint**: `POST /api/auth/change-password`
+* **Endpoint**: `POST /api/v1/auth/change-password`
 * **Request**:
   ```json
   {
@@ -574,7 +575,7 @@ All list-fetching API endpoints return data nested inside the following envelope
   ```
 
 #### 4. Create Owner Account (Super Admin only)
-* **Endpoint**: `POST /api/tenants/owners`
+* **Endpoint**: `POST /api/v1/tenants/owners`
 * **Request**:
   ```json
   {
@@ -593,7 +594,7 @@ All list-fetching API endpoints return data nested inside the following envelope
   ```
 
 #### 5. Reset Owner Password / Disable Access (Super Admin only)
-* **Endpoint**: `POST /api/tenants/owners/{id}/actions`
+* **Endpoint**: `POST /api/v1/tenants/owners/{id}/actions`
 * **Request**:
   ```json
   {
@@ -610,7 +611,7 @@ All list-fetching API endpoints return data nested inside the following envelope
   ```
 
 #### 6. Soft Delete Owner (Super Admin only)
-* **Endpoint**: `DELETE /api/tenants/owners/{id}`
+* **Endpoint**: `DELETE /api/v1/tenants/owners/{id}`
 * **Response (Success 200)**:
   ```json
   {
@@ -620,7 +621,7 @@ All list-fetching API endpoints return data nested inside the following envelope
   ```
 
 #### 7. Onboard New Hostel & Provision DB (Super Admin only)
-* **Endpoint**: `POST /api/tenants/hostels`
+* **Endpoint**: `POST /api/v1/tenants/hostels`
 * **Request**:
   ```json
   {
@@ -635,8 +636,67 @@ All list-fetching API endpoints return data nested inside the following envelope
   ```json
   {
     "hostel_id": "a9018c64-41c3-e83c-ab0b-47e289bf4055",
-    "db_name": "hostel_a9018c64_db",
+    "db_name": "hostelmint_hostel_a9018c64_db",
     "status": "provisioned_and_migrated"
+  }
+  ```
+
+#### 8. Request Forgot Password OTP
+* **Endpoint**: `POST /api/v1/auth/forgot-password`
+* **Request**:
+  ```json
+  {
+    "email": "owner@email.com"
+  }
+  ```
+* **Response (Success 200)**:
+  ```json
+  {
+    "message": "OTP has been sent to your registered email address."
+  }
+  ```
+
+#### 9. Verify OTP & Reset Password
+* **Endpoint**: `POST /api/v1/auth/reset-password`
+* **Request**:
+  ```json
+  {
+    "email": "owner@email.com",
+    "otp": "123456",
+    "new_password": "NewSecurePassword123"
+  }
+  ```
+* **Response (Success 200)**:
+  ```json
+  {
+    "message": "Password reset successfully. You can now login with your new credentials."
+  }
+  ```
+
+#### 10. Request Passwordless Login OTP
+* **Endpoint**: `POST /api/v1/auth/login-otp/request?email=owner@email.com`
+* **Response (Success 200)**:
+  ```json
+  {
+    "message": "Verification OTP has been sent to your email address."
+  }
+  ```
+
+#### 11. Authenticate with Passwordless Login OTP
+* **Endpoint**: `POST /api/v1/auth/login-otp/verify`
+* **Request**:
+  ```json
+  {
+    "email": "owner@email.com",
+    "otp": "123456"
+  }
+  ```
+* **Response (Success 200)**:
+  ```json
+  {
+    "token": "eyJhbGciOi...",
+    "force_reset": false,
+    "role": "OWNER"
   }
   ```
 
@@ -645,7 +705,7 @@ All list-fetching API endpoints return data nested inside the following envelope
 ### 2.2 Hostel & Room Service
 
 #### 1. Search & Filter Hostelers (Paginated)
-* **Endpoint**: `GET /api/hostelers`
+* **Endpoint**: `GET /api/v1/hostelers`
 * **Query Parameters**:
   * `page` (optional integer, default: 1)
   * `limit` (optional integer, default: 20)
@@ -676,7 +736,7 @@ All list-fetching API endpoints return data nested inside the following envelope
   ```
 
 #### 2. Add New Hosteler
-* **Endpoint**: `POST /api/hostelers`
+* **Endpoint**: `POST /api/v1/hostelers`
 * **Request**:
   ```json
   {
@@ -701,7 +761,7 @@ All list-fetching API endpoints return data nested inside the following envelope
   ```
 
 #### 3. Edit Hosteler & Mark Vacated
-* **Endpoint**: `PUT /api/hostelers/{id}`
+* **Endpoint**: `PUT /api/v1/hostelers/{id}`
 * **Request**:
   ```json
   {
@@ -719,7 +779,7 @@ All list-fetching API endpoints return data nested inside the following envelope
   ```
 
 #### 4. Soft Delete Hosteler
-* **Endpoint**: `DELETE /api/hostelers/{id}`
+* **Endpoint**: `DELETE /api/v1/hostelers/{id}`
 * **Response (Success 200)**:
   ```json
   {
@@ -729,7 +789,7 @@ All list-fetching API endpoints return data nested inside the following envelope
   ```
 
 #### 5. Add Room
-* **Endpoint**: `POST /api/rooms`
+* **Endpoint**: `POST /api/v1/rooms`
 * **Request**:
   ```json
   {
@@ -749,7 +809,7 @@ All list-fetching API endpoints return data nested inside the following envelope
   ```
 
 #### 6. Assign Bed Space
-* **Endpoint**: `POST /api/rooms/assign`
+* **Endpoint**: `POST /api/v1/rooms/assign`
 * **Request**:
   ```json
   {
@@ -768,7 +828,7 @@ All list-fetching API endpoints return data nested inside the following envelope
   ```
 
 #### 7. Re-assign / Transfer Room
-* **Endpoint**: `POST /api/rooms/transfer`
+* **Endpoint**: `POST /api/v1/rooms/transfer`
 * **Request**:
   ```json
   {
@@ -787,143 +847,6 @@ All list-fetching API endpoints return data nested inside the following envelope
 
 ---
 
-### 2.3 Finance & Inventory Service
-
-#### 1. Record Income
-* **Endpoint**: `POST /api/finance/income`
-* **Request**:
-  ```json
-  {
-    "hosteler_id": "d05f3d81-e83c-41c3-ab0b-47e289bf4222",
-    "amount": 8500.00,
-    "payment_date": "2025-05-02",
-    "payment_mode": "upi",
-    "reference_number": "UPI9988112233"
-  }
-  ```
-* **Response (Created 201)**:
-  ```json
-  {
-    "transaction_id": "t900e9ff-75e6-5b68-492f-4a6c58143d26",
-    "receipt_url": "https://hostelhub-receipts.s3.amazonaws.com/receipt_t900.pdf?AWSAccessKeyId=..."
-  }
-  ```
-
-#### 2. Record Expense
-* **Endpoint**: `POST /api/finance/expenses`
-* **Request**:
-  ```json
-  {
-    "category": "maintenance",
-    "amount": 12500.00,
-    "expense_date": "2025-05-05",
-    "description": "Plumbing repair on ground floor",
-    "receipt_photo_key": "uploads/receipts/exp_plumb_992.jpg"
-  }
-  ```
-* **Response (Created 201)**:
-  ```json
-  {
-    "expense_id": "e4ad6dec-8ec0-962a-92a6-637e19adff6f",
-    "status": "logged"
-  }
-  ```
-
-#### 3. List Asset Inventory (Paginated)
-* **Endpoint**: `GET /api/finance/inventory`
-* **Query Parameters**:
-  * `page` (optional integer, default: 1)
-  * `limit` (optional integer, default: 20)
-* **Response (Success 200)**:
-  ```json
-  {
-    "data": [
-      {
-        "id": "e4ad6dec-8ec0-962a-92a6-637e19adff6f",
-        "asset_name": "Beds",
-        "quantity": 120,
-        "condition": "good"
-      }
-    ],
-    "pagination": {
-      "total_records": 1,
-      "current_page": 1,
-      "limit": 20,
-      "total_pages": 1
-    }
-  }
-  ```
-
----
-
-### 2.4 Notification Service
-
-#### 1. Register Mobile Push Token (FCM/APNs)
-* **Endpoint**: `POST /api/notifications/register-token`
-* **Request**:
-  ```json
-  {
-    "token": "fcm_token_string_abc123",
-    "device_type": "android" // OR "ios"
-  }
-  ```
-* **Response (Success 200)**:
-  ```json
-  {
-    "status": "registered"
-  }
-  ```
-
-#### 2. Retrieve In-App Notification Center Logs (Paginated)
-* **Endpoint**: `GET /api/notifications`
-* **Query Parameters**:
-  * `page` (optional integer, default: 1)
-  * `limit` (optional integer, default: 20)
-* **Response (Success 200)**:
-  ```json
-  {
-    "data": [
-      {
-        "id": "n9cb3996-9671-7990-1391-054ee4cdb992",
-        "notification_type": "rent_overdue",
-        "message": "Room 101 Rent payment is overdue.",
-        "is_read": false,
-        "created_at": "2025-05-10T09:00:00Z"
-      }
-    ],
-    "pagination": {
-      "total_records": 1,
-      "current_page": 1,
-      "limit": 20,
-      "total_pages": 1
-    }
-  }
-  ```
-
----
-
-### 2.5 Storage Service
-
-#### 1. Request Secure Presigned Upload URL
-* **Endpoint**: `POST /api/storage/presigned-upload-url`
-* **Request**:
-  ```json
-  {
-    "file_name": "profile_photo.jpg",
-    "mime_type": "image/jpeg",
-    "purpose": "hosteler_photo"
-  }
-  ```
-* **Response (Success 200)**:
-  ```json
-  {
-    "upload_url": "https://s3.amazonaws.com/hostelhub-bucket/uploads/hosteler_photo/abc.jpg?Signature=...",
-    "file_key": "uploads/hosteler_photo/abc.jpg"
-  }
-  ```
-
----
-
 ## 3. Important Implementation Instructions
 
 ### 3.1 Pydantic Validation & Error Handling
@@ -932,15 +855,11 @@ All APIs must parse and validate inputs using **Pydantic v2** models. Unhandled 
 ---
 
 ### 3.2 Dynamic Migration Runner
-Because we have isolated PostgreSQL databases for each hostel, standard static database migrations will not work. When the Super Admin creates a new hostel, the backend must programmatically invoke **Alembic** to apply schemas:
+Because we have isolated PostgreSQL databases for each hostel, standard static database migrations will not work. When the Super Admin creates a new hostel, the backend must programmatically invoke **Alembic** (or strict SQL schema runner scripts) to apply schemas:
 ```python
-import alembic.config
-import alembic.command
-
 def run_tenant_migrations(db_connection_url: str):
-    alembic_cfg = alembic.config.Config("alembic.ini")
-    alembic_cfg.set_main_option("sqlalchemy.url", db_connection_url)
-    alembic.command.upgrade(alembic_cfg, "head")
+    # Initializes types, schemas, and indices dynamically
+    ...
 ```
 
 ---
@@ -987,16 +906,11 @@ To ensure absolute privacy of sensitive personal records (Aadhaar card scans) an
 #### 2. Presigned Upload (POST/PUT) Protocol
 * Frontend clients must never upload files directly through the backend API servers to prevent thread clogging and network bottlenecks.
 * **Upload Flow**:
-  1. The client calls `POST /api/storage/presigned-upload-url` requesting an upload slot.
+  1. The client calls `POST /api/v1/hostelers/presigned-upload` requesting an upload slot.
   2. The backend generates a temporary presigned POST policy dictionary using `boto3` in Python:
      ```python
-     import boto3
-     from botocore.config import Config
-
-     s3_client = boto3.client('s3', config=Config(signature_version='s3v4'))
-     
      response = s3_client.generate_presigned_post(
-         Bucket='hostelhub-secure-vault',
+         Bucket='hostelmint-secure-vault',
          Key=f"uploads/{hostel_id}/aadhaar/{uuid.uuid4()}.jpg",
          Fields={"Content-Type": "image/jpeg"},
          Conditions=[{"Content-Type": "image/jpeg"}],
@@ -1009,13 +923,13 @@ To ensure absolute privacy of sensitive personal records (Aadhaar card scans) an
 #### 3. Secure Retrieval (GET) Protocol
 * The backend must never store or return public static URLs to files.
 * **Retrieval Flow**:
-  1. The client requests hosteler details (`GET /api/hostelers/{id}`).
+  1. The client requests hosteler details (`GET /api/v1/hostelers/{id}`).
   2. The backend fetches the raw S3 Key from the database.
   3. The backend generates a short-lived presigned GET URL (valid for **120 seconds**):
      ```python
      secure_url = s3_client.generate_presigned_url(
          ClientMethod='get_object',
-         Params={'Bucket': 'hostelhub-secure-vault', 'Key': db_stored_s3_key},
+         Params={'Bucket': 'hostelmint-secure-vault', 'Key': db_stored_s3_key},
          ExpiresIn=120 # URL expires in 2 minutes
      )
      ```
@@ -1041,7 +955,7 @@ Backend developers must implement a request middleware to handle dynamic routing
 
 To ensure absolute accountability of owner actions (Super Admin audit trail), backend developers must record every state-modifying event:
 
-* **Trigger**: Any successful request to endpoints under `/api/hostelers/*`, `/api/rooms/*`, and `/api/finance/*` must log an audit record.
+* **Trigger**: Any successful request to endpoints under `/api/v1/hostelers/*`, `/api/v1/rooms/*`, and `/api/v1/finance/*` must log an audit record.
 * **Flow**:
   1. The API controller successfully executes the core database transactions.
   2. Instead of blocking the HTTP thread, the backend pushes an audit log job payload to the Redis queue.
@@ -1054,7 +968,7 @@ To ensure absolute accountability of owner actions (Super Admin audit trail), ba
 ---
 
 ### 3.9 Authentication Rate Limiting (Brute-Force Prevention)
-To protect login endpoints (`POST /api/auth/super-admin/login` and `POST /api/auth/owner/login`) from dictionary or brute-force requests, developers must implement a rate-limiting filter using **Redis**:
+To protect login endpoints (`POST /api/v1/auth/login` and passwordless options) from dictionary or brute-force requests, developers must implement a rate-limiting filter using **Redis**:
 1. **Key Tracking**: Upon every failed authentication attempt, the backend increments a Redis string key keyed by the user's email address: `failed_attempts:{email}`.
 2. **Lockout Trigger**:
    - If the Redis counter value reaches **5 attempts**, the backend blocks further requests for that email, returning `HTTP 429 Too Many Requests` with a custom error message.
@@ -1064,13 +978,13 @@ To protect login endpoints (`POST /api/auth/super-admin/login` and `POST /api/au
 ---
 
 ### 3.10 Soft Delete Query Conventions
-To prevent physical SQL `DELETE` executions from removing historical resident, finance, and room records, all entities include `is_deleted` and `deleted_at` fields:
+To prevent physical SQL `DELETE` executions from removing historical resident, room, and inventory records, all entities include `is_deleted` and `deleted_at` fields:
 * **Query Filter**: Backend developers must override ORM default select queries (e.g. using SQLAlchemy's `with_loader_criteria` or custom query filters) to automatically append `WHERE is_deleted = FALSE` to database reads.
-* **Deletion Executions**: Running a deletion API (`DELETE /api/.../{id}`) must run an update statement:
+* **Deletion Executions**: Running a deletion API (`DELETE /api/v1/.../{id}`) must run an update statement:
   ```sql
   UPDATE <table_name> SET is_deleted = TRUE, deleted_at = NOW() WHERE id = :id;
   ```
-* **Recovery API**: Add support for a restoration route `POST /api/.../{id}/restore` to undo accidental updates by reverting `is_deleted` to `FALSE` and nullifying the timestamp.
+* **Recovery API**: Add support for a restoration route `POST /api/v1/.../{id}/restore` to undo accidental updates by reverting `is_deleted` to `FALSE` and nullifying the timestamp.
 
 ---
 
@@ -1118,60 +1032,33 @@ backend/<service_folder>/
 This checklist organizes developer duties by implementation phase to facilitate division of labor:
 
 ### Phase 1: Shared Core Infrastructure
-- [ ] **Task 1.1**: Set up root directory with `docker-compose.yml` defining networks, Redis, PgBouncer, and local PostgreSQL container.
-- [ ] **Task 1.2**: Create a mock S3 MinIO storage container configuration and local testing folder directory structures.
-- [ ] **Task 1.3**: Configure the API Gateway (Nginx or Traefik config file) mapping ports for auth, hostel, finance, notifications, and storage microservices.
-- [ ] **Task 1.4**: Define the master `.env.example` file and configure standard `/api/v1/` versioning prefixes across all routers.
-- [ ] **Task 1.5**: Implement CORS middleware rules in individual microservice entry points to accept requests from Web Admin and React Native mobile clients.
+- [x] **Task 1.1**: Set up root directory with `docker-compose.yml` defining PostgreSQL, Redis, MinIO, and Nginx.
+- [x] **Task 1.2**: Create a mock S3 MinIO storage container configuration and buckets setup script.
+- [x] **Task 1.3**: Configure the Nginx API Gateway (`nginx.conf`) routing requests to `/api/v1/auth/*` and `/api/v1/hostel_service/*`.
+- [x] **Task 1.4**: Define the master `.env.example` file.
+- [x] **Task 1.5**: Set up base microservice boilerplate requirements.txt and Dockerfiles.
 
 ### Phase 2: Central Database & Auth Service (`auth_service/`)
-- [ ] **Task 2.1**: Implement Central Admin DB schemas (SuperAdmins, Owners, Hostels, TenantDatabases) supporting soft delete flags.
-- [ ] **Task 2.2**: Implement login routes for Super Admin and Owners (JWT token generation).
-- [ ] **Task 2.3**: Implement first-time password change routing constraint middleware.
-- [ ] **Task 2.4**: Implement Super Admin Owner onboarding (`POST /api/tenants/owners`) and access suspension toggle endpoints.
-- [ ] **Task 2.5**: Implement Redis failed-attempts lockout counter rate limiter middleware on login routes.
-- [ ] **Task 2.6**: Write script to seed the default Super Admin credentials on deployment.
+- [x] **Task 2.1**: Implement Central Admin DB schemas (SuperAdmins, Owners, Hostels, TenantDatabases) supporting soft delete flags.
+- [x] **Task 2.2**: Implement login routes for Super Admin and Owners (JWT token generation).
+- [x] **Task 2.3**: Implement first-time password change routing constraint middleware.
+- [x] **Task 2.4**: Implement Super Admin Owner onboarding (`POST /api/v1/tenants/owners`) and access suspension toggle endpoints.
+- [x] **Task 2.5**: Implement Redis failed-attempts lockout counter rate limiter middleware on login routes.
+- [x] **Task 2.6**: Write script to seed the default Super Admin credentials on deployment.
 
 ### Phase 3: Tenant Connection Middleware & Alembic Runner
-- [ ] **Task 3.1**: Create dynamic database connection routing middleware (engine cache directory dictionary).
-- [ ] **Task 3.2**: Write programmatic Alembic migration trigger script to initialize identical tenant schemas on `CREATE DATABASE`.
-- [ ] **Task 3.3**: Configure PgBouncer transaction-level pooling variables for multi-database scale.
+- [x] **Task 3.1**: Create dynamic database connection routing middleware (engine cache directory dictionary).
+- [x] **Task 3.2**: Write programmatic Alembic migration trigger script to initialize identical tenant schemas on `CREATE DATABASE`.
+- [x] **Task 3.3**: Set up Tenant Alembic configuration environment.
 
 ### Phase 4: Hostel & Room Service (`hostel_service/`)
-- [ ] **Task 4.1**: Implement Tenant DB schemas (Hostelers, Rooms, RoomAssignments) supporting soft delete columns.
-- [ ] **Task 4.2**: Build Room creation endpoint (`POST /api/rooms`) supporting 2, 3, or 4 beds capacity constraints.
-- [ ] **Task 4.3**: Build Hosteler registration endpoint (`POST /api/hostelers`) tracking Aadhaar upload keys.
-- [ ] **Task 4.4**: Implement Bed Allocation checks (`POST /api/rooms/assign`) to prevent over-allocation.
-- [ ] **Task 4.5**: Implement SQL Transaction block for Room Transfers (`POST /api/rooms/transfer`) logging historical occupancy movements.
-- [ ] **Task 4.6**: Integrate limit/offset query pagination for Hosteler listing.
-- [ ] **Task 4.7**: Build soft deletion and restoration endpoints for Hostelers and Rooms.
-
-### Phase 5: Finance & Asset Inventory Service (`finance_service/`)
-- [ ] **Task 5.1**: Implement Tenant DB schemas (Income, Expenses, Inventory) supporting soft deletes.
-- [ ] **Task 5.2**: Build Income logging endpoint (`POST /api/finance/income`) verifying positive payment amount values.
-- [ ] **Task 5.3**: Build Expense logging endpoint (`POST /api/finance/expenses`) checking receipt uploads and category Enums.
-- [ ] **Task 5.4**: Build Asset inventory listing endpoint (`GET /api/finance/inventory`) with pagination support.
-- [ ] **Task 5.5**: Build custom date-range summary report endpoint (Income vs. Expenses vs. Net Profit).
-- [ ] **Task 5.6**: Build soft deletion and restoration endpoints for Inventory.
-
-### Phase 6: Notification & Event Service (`notification_service/`)
-- [ ] **Task 6.1**: Implement Tenant DB schema (NotificationLogs).
-- [ ] **Task 6.2**: Establish Redis Event Bus listener loop to subscribe to published events (e.g. `rent_overdue`, `room_full`).
-- [ ] **Task 6.3**: Implement WebSocket Room Manager in FastAPI mapping active owners by ID.
-- [ ] **Task 6.4**: Integrate FCM/APNs push notification triggers for mobile alerts.
-- [ ] **Task 6.5**: Integrate SMTP email sender tasks in Celery background queues.
-- [ ] **Task 6.6**: Add paginated listing endpoints for Notification Logs.
-
-### Phase 7: Storage Service (`storage_service/`)
-- [ ] **Task 7.1**: Implement presigned POST upload URL generator endpoint for Aadhaar images.
-- [ ] **Task 7.2**: Implement presigned GET download URL generator endpoint with 120-second validity constraints.
-- [ ] **Task 7.3**: Configure local MinIO client boto3 connections for local docker development environment testing.
-
-### Phase 8: Containerization & Integration Testing
-- [ ] **Task 8.1**: Write Dockerfiles for each of the 5 microservices.
-- [ ] **Task 8.2**: Integrate services in `docker-compose.yml` mapping environment secrets.
-- [ ] **Task 8.3**: Set up Swagger/OpenAPI aggregation at the API Gateway level.
-- [ ] **Task 8.4**: Perform end-to-end integration tests.
+- [x] **Task 4.1**: Implement Tenant DB schemas (Hostelers, Rooms, RoomAssignments) supporting soft delete columns.
+- [x] **Task 4.2**: Build Room creation endpoint (`POST /api/v1/rooms`) supporting 2, 3, or 4 beds capacity constraints.
+- [x] **Task 4.3**: Build Hosteler registration endpoint (`POST /api/v1/hostelers`) tracking Aadhaar upload keys.
+- [x] **Task 4.4**: Implement Bed Allocation checks (`POST /api/v1/rooms/assign`) to prevent over-allocation.
+- [x] **Task 4.5**: Implement SQL Transaction block for Room Transfers (`POST /api/v1/rooms/transfer`) logging historical occupancy movements.
+- [x] **Task 4.6**: Integrate limit/offset query pagination for Hosteler listing.
+- [x] **Task 4.7**: Build soft deletion and restoration endpoints for Hostelers and Rooms.
 
 ---
 
@@ -1187,7 +1074,7 @@ API_VERSION=v1
 SECRET_KEY=generate_a_secure_random_hex_string_32_bytes
 
 # --- Database Configurations ---
-CENTRAL_DATABASE_URL=postgresql://central_admin:password@central-db:5432/hostel_hub_admin
+CENTRAL_DATABASE_URL=postgresql://central_admin:password@central-db:5432/hostelmint_admin_db
 PG_BOUNCER_POOL_MODE=transaction
 MAX_TENANT_CONNECTIONS=100
 
@@ -1198,7 +1085,7 @@ REDIS_URL=redis://redis-broker:6379/0
 S3_ENDPOINT_URL=https://s3.amazonaws.com # Mock MinIO URL for local dev
 S3_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
 S3_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-S3_BUCKET_NAME=hostelhub-secure-vault
+S3_BUCKET_NAME=hostelmint-secure-vault
 S3_REGION_NAME=ap-south-1
 
 # --- Real-Time Push Notification Credentials ---
@@ -1209,9 +1096,9 @@ APNS_TEAM_ID=apple_developer_team_id
 # --- Transactional Mail SMTP Relay ---
 SMTP_HOST=smtp.brevo.com
 SMTP_PORT=587
-SMTP_USERNAME=relay@hostelhub.com
+SMTP_USERNAME=relay@hostelmint.com
 SMTP_PASSWORD=brevo_smtp_secret_password
-SMTP_FROM_EMAIL=alerts@hostelhub.com
+SMTP_FROM_EMAIL=alerts@hostelmint.com
 ```
 
 ### 6.2 API Versioning Policy
@@ -1227,7 +1114,7 @@ SMTP_FROM_EMAIL=alerts@hostelhub.com
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
-            "https://admin.hostelhub.com",        # Production Web Admin
+            "https://admin.hostelmint.com",        # Production Web Admin
             "http://localhost:3000",              # Local Web Admin dev port
         ],
         allow_credentials=True,

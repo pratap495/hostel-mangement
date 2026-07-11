@@ -57,3 +57,17 @@ class OwnerResponse(BaseModel):
 class PaginatedOwnersResponse(BaseModel):
     data: List[OwnerResponse]
     pagination: PaginationMeta
+
+# --- OTP / Password Reset Schemas ---
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp: str = Field(..., min_length=6, max_length=6)
+    new_password: str = Field(..., min_length=8)
+
+class OTPLoginRequest(BaseModel):
+    email: EmailStr
+    otp: str = Field(..., min_length=6, max_length=6)
+

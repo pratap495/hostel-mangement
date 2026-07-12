@@ -1060,6 +1060,33 @@ This checklist organizes developer duties by implementation phase to facilitate 
 - [x] **Task 4.6**: Integrate limit/offset query pagination for Hosteler listing.
 - [x] **Task 4.7**: Build soft deletion and restoration endpoints for Hostelers and Rooms.
 
+### Phase 5: Finance & Asset Inventory Service (`finance_service/`)
+- [ ] **Task 5.1**: Implement Tenant DB schemas (Income, Expenses, Inventory) supporting soft deletes.
+- [ ] **Task 5.2**: Build Income logging endpoint (`POST /api/v1/finance/income`) verifying positive payment amount values.
+- [ ] **Task 5.3**: Build Expense logging endpoint (`POST /api/v1/finance/expenses`) checking receipt uploads and category Enums.
+- [ ] **Task 5.4**: Build Asset inventory listing endpoint (`GET /api/v1/finance/inventory`) with pagination support.
+- [ ] **Task 5.5**: Build custom date-range summary report endpoint (Income vs. Expenses vs. Net Profit).
+- [ ] **Task 5.6**: Build soft deletion and restoration endpoints for Inventory.
+
+### Phase 6: Notification & Event Service (`notification_service/`)
+- [ ] **Task 6.1**: Implement Tenant DB schema (NotificationLogs).
+- [ ] **Task 6.2**: Establish Redis Event Bus listener loop to subscribe to published events (e.g. `rent_overdue`, `room_full`).
+- [ ] **Task 6.3**: Implement WebSocket Room Manager in FastAPI mapping active owners by ID.
+- [ ] **Task 6.4**: Integrate FCM/APNs push notification triggers for mobile alerts.
+- [ ] **Task 6.5**: Integrate SMTP email sender tasks in Celery background queues.
+- [ ] **Task 6.6**: Add paginated listing endpoints for Notification Logs.
+
+### Phase 7: Storage Service (`storage_service/`)
+- [ ] **Task 7.1**: Implement presigned POST upload URL generator endpoint for Aadhaar images.
+- [ ] **Task 7.2**: Implement presigned GET download URL generator endpoint with 120-second validity constraints.
+- [ ] **Task 7.3**: Configure local MinIO client boto3 connections for local docker development environment testing.
+
+### Phase 8: Containerization & Integration Testing
+- [ ] **Task 8.1**: Write Dockerfiles for each of the 5 microservices.
+- [ ] **Task 8.2**: Integrate services in `docker-compose.yml` mapping environment secrets.
+- [ ] **Task 8.3**: Set up Swagger/OpenAPI aggregation at the API Gateway level.
+- [ ] **Task 8.4**: Perform end-to-end integration tests.
+
 ---
 
 ## 6. Environment Configuration & Security Protocols

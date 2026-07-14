@@ -5,14 +5,24 @@ from app.core.database import get_admin_db
 from app.core.security import get_current_user
 from app.schemas.api_schemas import (
     OwnerCreateRequest, OwnerCreateResponse, 
-    StatusChangeRequest, HostelCreateRequest, HostelCreateResponse
+    StatusChangeRequest, HostelCreateRequest, HostelCreateResponse,
+    SuccessResponse, ErrorResponse
 )
 from app.controllers.tenant_controller import (
     create_owner_account, update_owner_status, 
     soft_delete_owner_account, provision_hostel_and_db, log_activity
 )
 
-router = APIRouter(prefix="/tenants", tags=["Tenants Management"])
+router = APIRouter(
+    prefix="/tenants", 
+    tags=["Tenants Management"],
+    responses={
+        422: {
+            "model": ErrorResponse,
+            "description": "Validation Error"
+        }
+    }
+)
 
 def require_super_admin(current_user: dict = Depends(get_current_user)):
     """Enforce that only authenticated Super Admins can access these routes."""
@@ -23,7 +33,18 @@ def require_super_admin(current_user: dict = Depends(get_current_user)):
         )
     return current_user
 
-@router.post("/owners", response_model=OwnerCreateResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/owners", 
+    response_model=OwnerCreateResponse, 
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        422: {
+            "model": ErrorResponse,
+            "description": "Validation Error",
+            "content": {"application/json": {"example": {"detail": "Validation failed: 'email' value is not a valid email address; 'name' is required."}}}
+        }
+    }
+)
 def create_owner(
     request: OwnerCreateRequest,
     db: Session = Depends(get_admin_db),
@@ -32,7 +53,22 @@ def create_owner(
     """Onboard a new Owner account (Super Admin only)."""
     return create_owner_account(db, request)
 
-@router.post("/owners/{owner_id}/actions")
+@router.post(
+    "/owners/{owner_id}/actions", 
+    response_model=SuccessResponse,
+    responses={
+        200: {
+            "model": SuccessResponse,
+            "description": "Successful Response",
+            "content": {"application/json": {"example": {"message": "Owner status updated successfully."}}}
+        },
+        422: {
+            "model": ErrorResponse,
+            "description": "Validation Error",
+            "content": {"application/json": {"example": {"detail": "Validation failed: 'action' must match standard action types (enable, disable, reset_password)."}}}
+        }
+    }
+)
 def update_owner(
     owner_id: UUID,
     request: StatusChangeRequest,
@@ -42,7 +78,22 @@ def update_owner(
     """Activate, deactivate, or trigger password reset on Owner dashboard access (Super Admin only)."""
     return update_owner_status(db, str(owner_id), request)
 
-@router.delete("/owners/{owner_id}")
+@router.delete(
+    "/owners/{owner_id}", 
+    response_model=SuccessResponse,
+    responses={
+        200: {
+            "model": SuccessResponse,
+            "description": "Successful Response",
+            "content": {"application/json": {"example": {"message": "Owner account successfully deleted."}}}
+        },
+        422: {
+            "model": ErrorResponse,
+            "description": "Validation Error",
+            "content": {"application/json": {"example": {"detail": "Validation failed: 'owner_id' must be a valid UUID."}}}
+        }
+    }
+)
 def delete_owner(
     owner_id: UUID,
     db: Session = Depends(get_admin_db),
@@ -51,7 +102,18 @@ def delete_owner(
     """Soft delete an Owner account (Super Admin only)."""
     return soft_delete_owner_account(db, str(owner_id))
 
-@router.post("/hostels", response_model=HostelCreateResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/hostels", 
+    response_model=HostelCreateResponse, 
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        422: {
+            "model": ErrorResponse,
+            "description": "Validation Error",
+            "content": {"application/json": {"example": {"detail": "Validation failed: 'name' is required; 'floors_count' must be greater than 0."}}}
+        }
+    }
+)
 def create_hostel(
     request: HostelCreateRequest,
     db: Session = Depends(get_admin_db),
@@ -60,7 +122,22 @@ def create_hostel(
     """Onboard new hostel metadata and provision its dynamic PostgreSQL tenant database (Super Admin only)."""
     return provision_hostel_and_db(db, request)
 
-@router.post("/activity-log")
+@router.post(
+    "/activity-log", 
+    response_model=SuccessResponse,
+    responses={
+        200: {
+            "model": SuccessResponse,
+            "description": "Successful Response",
+            "content": {"application/json": {"example": {"message": "Activity log recorded successfully."}}}
+        },
+        422: {
+            "model": ErrorResponse,
+            "description": "Validation Error",
+            "content": {"application/json": {"example": {"detail": "Validation failed: 'action' is required."}}}
+        }
+    }
+)
 def create_activity_log(
     action: str,
     hostel_id: str = None,
@@ -80,4 +157,4 @@ def create_activity_log(
         ip_address=client_ip,
         user_agent=user_agent
     )
-    return {"status": "logged"}
+    return {"message": "Activity log recorded successfully."}

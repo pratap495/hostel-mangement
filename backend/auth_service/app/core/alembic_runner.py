@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS hostelers (
     id UUID PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     phone VARCHAR(20) NOT NULL,
-    email VARCHAR(255) NULLABLE,
+    email VARCHAR(255) NULL,
     permanent_address TEXT NOT NULL,
     emergency_contact_name VARCHAR(100) NOT NULL,
     emergency_contact_phone VARCHAR(20) NOT NULL,
@@ -153,15 +153,10 @@ def run_tenant_migrations(db_connection_url: str):
     
     logger.info("Initializing dynamic tenant schemas on connection URL...")
     
-    # Split the DDL scripts to execute table creations
-    statements = [stmt.strip() for stmt in TENANT_SCHEMA_DDL.split(";") if stmt.strip()]
-    
     with engine.begin() as conn:
         # Enable UUID extension in the new database
         conn.execute(text('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"'))
-        
-        for statement in statements:
-            # Execute statement
-            conn.execute(text(statement))
+        # Execute the entire DDL block in a single transaction (avoids DO block semicolon split bug)
+        conn.execute(text(TENANT_SCHEMA_DDL))
             
     logger.info("Dynamic tenant schema successfully provisioned.")

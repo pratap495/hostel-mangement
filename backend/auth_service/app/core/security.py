@@ -1,22 +1,22 @@
 from datetime import datetime, timedelta
 from typing import Union, Any
 import jwt
-from passlib.context import CryptContext
+import bcrypt
 from .config import settings
 
-# Configure password hashing context using bcrypt
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a plain text password against a bcrypt hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    """Verify a plain text password against a bcrypt hash directly using bcrypt library."""
+    try:
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except Exception:
+        return False
 
 def get_password_hash(password: str) -> str:
-    """Generate bcrypt hash for a plain text password."""
-    return pwd_context.hash(password)
+    """Generate bcrypt hash for a plain text password directly using bcrypt library."""
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-def create_access_token(subject: Union[str, Any], role: str, expires_delta: int = None) -> str:
-    """Generate JWT access token for a subject (user id/email)."""
+def create_access_token(subject: Union[str, Any], role: str, force_reset: bool = False, expires_delta: int = None) -> str:
+    """Generate JWT access token for a subject containing roles and force reset claims."""
     if expires_delta:
         expire = datetime.utcnow() + timedelta(minutes=expires_delta)
     else:
@@ -25,7 +25,8 @@ def create_access_token(subject: Union[str, Any], role: str, expires_delta: int 
     to_encode = {
         "exp": expire,
         "sub": str(subject),
-        "role": role
+        "role": role,
+        "force_reset": force_reset
     }
     
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
@@ -39,13 +40,13 @@ def decode_access_token(token: str) -> dict:
     except jwt.PyJWTError:
         return {}
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 reusable_oauth2 = HTTPBearer()
 
-def get_current_user(token: HTTPAuthorizationCredentials = Depends(reusable_oauth2)) -> dict:
-    """Extract and validate the active user's credentials from the bearer token."""
+def get_current_user(request: Request, token: HTTPAuthorizationCredentials = Depends(reusable_oauth2)) -> dict:
+    """Extract and validate credentials, blocking operations if first-time password reset is forced (Task 2.3)."""
     payload = decode_access_token(token.credentials)
     if not payload:
         raise HTTPException(
@@ -53,5 +54,13 @@ def get_current_user(token: HTTPAuthorizationCredentials = Depends(reusable_oaut
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    # Block all operations except change-password and system health checks if first login password reset is required (restricted to Owner role)
+    if payload.get("force_reset") and payload.get("role") == "OWNER" and not (request.url.path.endswith("/change-password") or request.url.path.endswith("/health")):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="FORCE_PASSWORD_RESET_REQUIRED: Please set your new password before accessing system resources."
+        )
+        
     return payload
 

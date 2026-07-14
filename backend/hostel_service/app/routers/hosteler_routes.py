@@ -6,7 +6,8 @@ from typing import Optional
 from app.core.tenant_middleware import get_tenant_db
 from app.core.security import require_owner_or_admin
 from app.schemas.api_schemas import (
-    HostelerCreateRequest, HostelerResponse, HostelerEditRequest, PaginatedHostelersResponse
+    HostelerCreateRequest, HostelerResponse, HostelerEditRequest, PaginatedHostelersResponse,
+    SuccessResponse, ErrorResponse, PresignedUploadResponse, HostelerActionResponse
 )
 from app.controllers.hosteler_controller import (
     register_hosteler, edit_hosteler_profile, search_residents, 
@@ -16,7 +17,18 @@ from app.core.s3_helper import get_presigned_upload_url
 
 router = APIRouter(prefix="/hostelers", tags=["Hostelers Profiles"])
 
-@router.post("", response_model=HostelerResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "", 
+    response_model=HostelerResponse, 
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        422: {
+            "model": ErrorResponse,
+            "description": "Validation Error",
+            "content": {"application/json": {"example": {"detail": "Validation failed: 'name' is required; 'phone' must be at least 10 characters."}}}
+        }
+    }
+)
 def create_hosteler(
     request: HostelerCreateRequest,
     db: Session = Depends(get_tenant_db),
@@ -25,7 +37,17 @@ def create_hosteler(
     """Register a new Hosteler profile and assign storage identifiers (Owner/Admin only)."""
     return register_hosteler(db, request)
 
-@router.put("/{hosteler_id}", response_model=HostelerResponse)
+@router.put(
+    "/{hosteler_id}", 
+    response_model=HostelerResponse,
+    responses={
+        422: {
+            "model": ErrorResponse,
+            "description": "Validation Error",
+            "content": {"application/json": {"example": {"detail": "Validation failed: 'permanent_address' must be at least 5 characters."}}}
+        }
+    }
+)
 def edit_hosteler(
     hosteler_id: UUID,
     request: HostelerEditRequest,
@@ -35,7 +57,17 @@ def edit_hosteler(
     """Edit an existing resident profile and handle vacate/check-out logs (Owner/Admin only)."""
     return edit_hosteler_profile(db, str(hosteler_id), request)
 
-@router.get("", response_model=PaginatedHostelersResponse)
+@router.get(
+    "", 
+    response_model=PaginatedHostelersResponse,
+    responses={
+        422: {
+            "model": ErrorResponse,
+            "description": "Validation Error",
+            "content": {"application/json": {"example": {"detail": "Validation failed: 'page' must be greater than or equal to 1."}}}
+        }
+    }
+)
 def get_hostelers(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -57,7 +89,17 @@ def get_hostelers(
         joining_date=joining_date
     )
 
-@router.delete("/{hosteler_id}")
+@router.delete(
+    "/{hosteler_id}", 
+    response_model=HostelerActionResponse,
+    responses={
+        422: {
+            "model": ErrorResponse,
+            "description": "Validation Error",
+            "content": {"application/json": {"example": {"detail": "Validation failed: 'hosteler_id' must be a valid UUID."}}}
+        }
+    }
+)
 def delete_hosteler(
     hosteler_id: UUID,
     db: Session = Depends(get_tenant_db),
@@ -66,7 +108,17 @@ def delete_hosteler(
     """Soft delete a hosteler profile and vacate active bed slots (Owner/Admin only)."""
     return soft_delete_hosteler_profile(db, str(hosteler_id))
 
-@router.post("/{hosteler_id}/restore")
+@router.post(
+    "/{hosteler_id}/restore", 
+    response_model=HostelerActionResponse,
+    responses={
+        422: {
+            "model": ErrorResponse,
+            "description": "Validation Error",
+            "content": {"application/json": {"example": {"detail": "Validation failed: 'hosteler_id' must be a valid UUID."}}}
+        }
+    }
+)
 def restore_hosteler(
     hosteler_id: UUID,
     db: Session = Depends(get_tenant_db),
@@ -75,7 +127,17 @@ def restore_hosteler(
     """Restore a previously soft deleted hosteler profile (Owner/Admin only)."""
     return restore_hosteler_profile(db, str(hosteler_id))
 
-@router.post("/presigned-upload")
+@router.post(
+    "/presigned-upload", 
+    response_model=PresignedUploadResponse,
+    responses={
+        422: {
+            "model": ErrorResponse,
+            "description": "Validation Error",
+            "content": {"application/json": {"example": {"detail": "Validation failed: 'file_name' is required; 'mime_type' is required."}}}
+        }
+    }
+)
 def request_presigned_upload(
     file_name: str,
     mime_type: str,

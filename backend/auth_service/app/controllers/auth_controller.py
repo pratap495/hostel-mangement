@@ -70,7 +70,7 @@ def login_user(db: Session, request: LoginRequest) -> dict:
     if super_admin:
         if verify_password(request.password, super_admin.password_hash):
             reset_failed_attempts(email_clean)
-            token = create_access_token(subject=super_admin.id, role="SUPER_ADMIN")
+            token = create_access_token(subject=super_admin.id, role="SUPER_ADMIN", force_reset=super_admin.force_password_reset)
             return {
                 "token": token,
                 "force_reset": super_admin.force_password_reset,
@@ -89,7 +89,7 @@ def login_user(db: Session, request: LoginRequest) -> dict:
         
         if verify_password(request.password, owner.password_hash):
             reset_failed_attempts(email_clean)
-            token = create_access_token(subject=owner.id, role="OWNER")
+            token = create_access_token(subject=owner.id, role="OWNER", force_reset=owner.force_password_reset)
             return {
                 "token": token,
                 "force_reset": owner.force_password_reset,
@@ -243,7 +243,7 @@ def verify_login_otp(db: Session, request: OTPLoginRequest) -> dict:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Owner account is suspended or deleted.")
         
     # Generate Owner JWT token
-    token = create_access_token(subject=owner.id, role="OWNER")
+    token = create_access_token(subject=owner.id, role="OWNER", force_reset=owner.force_password_reset)
     
     # Invalidate OTP in Redis
     redis_client.delete(redis_key)

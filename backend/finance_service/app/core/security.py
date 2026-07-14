@@ -22,6 +22,13 @@ def get_current_user(token: HTTPAuthorizationCredentials = Depends(reusable_oaut
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    if payload.get("force_reset"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="FORCE_PASSWORD_RESET_REQUIRED: Please set your new password before accessing system resources."
+        )
+        
     return payload
 
 def require_owner_or_admin(current_user: dict = Depends(get_current_user)):

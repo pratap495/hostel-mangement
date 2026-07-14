@@ -33,6 +33,35 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Hostel-ID"],
 )
 
+from fastapi.exceptions import RequestValidationError
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+
+# Custom exception handlers for user-friendly error responses
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = []
+    for error in exc.errors():
+        field = ".".join(str(loc) for loc in error.get("loc", []) if loc != "body")
+        msg = error.get("msg", "invalid input")
+        if field:
+            errors.append(f"'{field}' {msg}")
+        else:
+            errors.append(msg)
+    friendly_msg = "Validation failed: " + "; ".join(errors)
+    return JSONResponse(
+        status_code=422,
+        content={"detail": friendly_msg}
+    )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled system error: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An unexpected server error occurred. Please try again later."}
+    )
+
 # Register tenant context switching middleware
 app.add_middleware(TenantRoutingMiddleware)
 
@@ -96,6 +125,8 @@ def on_startup():
     loop = asyncio.get_event_loop()
     loop.create_task(redis_event_subscriber())
 
-@app.get("/health", tags=["System"])
+from app.schemas.api_schemas import HealthResponse
+
+@app.get("/health", include_in_schema=False)
 def health_check():
     return {"status": "healthy", "service": "notification_service"}

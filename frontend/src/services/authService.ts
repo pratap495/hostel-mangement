@@ -14,7 +14,7 @@ export const authService = {
         email: cleanEmail,
         password
       });
-      const { token } = response.data;
+      const { token, force_reset } = response.data;
 
       // 2. Fetch authenticated profile details
       const profileResponse = await apiClient.get('/auth/me', {
@@ -39,7 +39,8 @@ export const authService = {
       store.dispatch(loginSuccess({
         user,
         token,
-        activeHostelId: activeHostelId || undefined
+        activeHostelId: activeHostelId || undefined,
+        forceReset: force_reset || false,
       }));
 
       store.dispatch(addLog({

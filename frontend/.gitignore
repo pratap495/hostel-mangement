@@ -42,3 +42,6 @@ yarn-error.*
 
 # temp folders
 tmp/
+
+# Android build packages
+*.apk

@@ -10,23 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { DrawerActions, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppSelector } from "../../redux/store";
-
-const stats = [
-  {
-    label: "TOTAL HOSTELS",
-    value: "128",
-    icon: "business-outline",
-    trend: "2.4%",
-  },
-  { label: "TOTAL OWNERS", value: "45", icon: "people-outline", trend: "5.1%" },
-  { label: "OCCUPIED BEDS", value: "102", icon: "bed-outline", trend: "12%" },
-  {
-    label: "MONTHLY\nREVENUE",
-    value: "₹24.5L",
-    icon: "cash-outline",
-    trend: "8%",
-  },
-] as const;
+import apiClient from "../../services/apiClient";
 
 const actions = [
   { label: "ADD HOSTEL", icon: "storefront-outline", target: "AdminHostels" },
@@ -38,8 +22,63 @@ export default function DashboardScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   
+  const hostels = useAppSelector(state => state.hostels.hostels);
+  const owners = useAppSelector(state => state.owners.owners);
   const logs = useAppSelector(state => state.logs.logs);
   const unreadCount = useAppSelector(state => state.logs.unreadCount);
+
+  const [statsData, setStatsData] = React.useState({
+    totalHostels: 0,
+    totalOwners: 0,
+    occupiedBeds: 0,
+    monthlyRevenue: 0.0
+  });
+
+  React.useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await apiClient.get('/tenants/dashboard-stats');
+        setStatsData({
+          totalHostels: response.data.total_hostels,
+          totalOwners: response.data.total_owners,
+          occupiedBeds: response.data.occupied_beds,
+          monthlyRevenue: response.data.monthly_revenue
+        });
+      } catch (error) {
+        console.error('Failed to fetch dashboard stats:', error);
+      }
+    };
+    fetchStats();
+  }, [hostels, owners]); // Re-fetch when lists update
+
+  const stats = [
+    {
+      label: "TOTAL HOSTELS",
+      value: String(statsData.totalHostels),
+      icon: "business-outline",
+      trend: statsData.totalHostels > 0 ? "2.4%" : "0%",
+    },
+    { 
+      label: "TOTAL OWNERS", 
+      value: String(statsData.totalOwners), 
+      icon: "people-outline", 
+      trend: statsData.totalOwners > 0 ? "5.1%" : "0%" 
+    },
+    { 
+      label: "OCCUPIED BEDS", 
+      value: String(statsData.occupiedBeds), 
+      icon: "bed-outline", 
+      trend: statsData.occupiedBeds > 0 ? "12%" : "0%" 
+    },
+    {
+      label: "MONTHLY\nREVENUE",
+      value: statsData.monthlyRevenue > 0 
+        ? `₹${(statsData.monthlyRevenue / 100000).toFixed(1)}L` 
+        : "₹0",
+      icon: "cash-outline",
+      trend: statsData.monthlyRevenue > 0 ? "8%" : "0%",
+    },
+  ] as const;
 
   const go = (target: string) => {
     if (target === "AdminProfile")

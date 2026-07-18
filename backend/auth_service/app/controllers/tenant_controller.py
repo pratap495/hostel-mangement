@@ -7,7 +7,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.models.db_models import Owner, Hostel, OwnerHostel, TenantDatabase, OwnerActivityLog
-from app.schemas.api_schemas import OwnerCreateRequest, StatusChangeRequest, HostelCreateRequest
+from app.schemas.api_schemas import OwnerCreateRequest, StatusChangeRequest, HostelCreateRequest, HostelUpdateRequest
+
 from app.core.security import get_password_hash
 from app.core.config import settings
 
@@ -42,7 +43,11 @@ def create_owner_account(db: Session, request: OwnerCreateRequest) -> dict:
             detail="An active owner account with this email already exists."
         )
         
-    temp_pass = generate_temp_password()
+    if request.password:
+        temp_pass = request.password
+    else:
+        temp_pass = generate_temp_password()
+        
     hashed_pass = get_password_hash(temp_pass)
     
     new_owner = Owner(
@@ -50,7 +55,7 @@ def create_owner_account(db: Session, request: OwnerCreateRequest) -> dict:
         name=request.name,
         phone=request.phone,
         password_hash=hashed_pass,
-        force_password_reset=True,
+        force_password_reset=True,  # Always force reset on first login regardless of who set the password
         is_active=True
     )
     
@@ -110,7 +115,8 @@ def provision_hostel_and_db(db: Session, request: HostelCreateRequest) -> dict:
         address=request.address,
         contact_number=request.contact_number,
         floors_count=request.floors_count,
-        rooms_count=request.rooms_count
+        rooms_count=request.rooms_count,
+        image_url=request.image_url
     )
     db.add(new_hostel)
     db.commit()
@@ -189,13 +195,37 @@ def provision_hostel_and_db(db: Session, request: HostelCreateRequest) -> dict:
         "status": "provisioned_and_migrated"
     }
 
+def update_hostel_details(db: Session, hostel_id: str, request: HostelUpdateRequest) -> dict:
+    """Update hostel metadata details and reassign/set owner mapping."""
+    hostel = db.query(Hostel).filter(Hostel.id == uuid.UUID(hostel_id), Hostel.is_deleted == False).first()
+    if not hostel:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hostel not found")
+        
+    hostel.name = request.name
+    hostel.address = request.address
+    hostel.contact_number = request.contact_number
+    hostel.floors_count = request.floors_count
+    hostel.rooms_count = request.rooms_count
+    hostel.image_url = request.image_url
+    
+    # Update owner mapping
+    db.query(OwnerHostel).filter(OwnerHostel.hostel_id == hostel.id).delete()
+    if request.owner_email:
+        owner = db.query(Owner).filter(Owner.email == request.owner_email.lower(), Owner.is_deleted == False).first()
+        if owner:
+            mapping = OwnerHostel(owner_id=owner.id, hostel_id=hostel.id)
+            db.add(mapping)
+            
+    db.commit()
+    return {"hostel_id": hostel.id, "status": "updated"}
+
 def get_owners_list(db: Session) -> list:
     """Fetch all active owner accounts and their linked hostels."""
     owners = db.query(Owner).filter(Owner.is_deleted == False).all()
     results = []
     for owner in owners:
         assigned = db.query(OwnerHostel.hostel_id).filter(OwnerHostel.owner_id == owner.id).all()
-        hostels_assigned = [row[0] for row in assigned]
+        hostels_assigned = [str(row[0]) for row in assigned]  # Convert UUID → string for frontend compatibility
         results.append({
             "id": owner.id,
             "email": owner.email,
@@ -208,6 +238,7 @@ def get_owners_list(db: Session) -> list:
 
 def get_hostels_list(db: Session, current_user: dict) -> list:
     """Fetch active hostels filtered by user permission context (Super Admin or Owner)."""
+    from sqlalchemy import create_engine, text
     user_id = uuid.UUID(str(current_user.get("sub")))
     role = current_user.get("role")
     
@@ -228,6 +259,36 @@ def get_hostels_list(db: Session, current_user: dict) -> list:
                 owner_email = owner.email
                 owner_phone = owner.phone
                 
+        # Query dynamic tenant database metrics
+        occupied_beds = 0
+        monthly_income = 0.0
+        total_hostelers = 0
+        
+        tenant_db = db.query(TenantDatabase).filter(TenantDatabase.hostel_id == hostel.id).first()
+        if tenant_db:
+            db_url = f"postgresql://{tenant_db.db_username}:password123@postgres-db:5432/{tenant_db.db_name}"
+            try:
+                engine = create_engine(db_url)
+                with engine.connect() as conn:
+                    # Query active occupied beds
+                    beds_res = conn.execute(text("SELECT COUNT(*) FROM room_assignments WHERE is_active = true AND transferred_date IS NULL;"))
+                    occupied_beds = beds_res.scalar() or 0
+                    
+                    # Query active headcount
+                    hostelers_res = conn.execute(text("SELECT COUNT(*) FROM hostelers WHERE is_active = true AND is_deleted = false;"))
+                    total_hostelers = hostelers_res.scalar() or 0
+                    
+                    # Query monthly income (current calendar month)
+                    rev_res = conn.execute(text("""
+                        SELECT COALESCE(SUM(amount), 0.0) 
+                        FROM income 
+                        WHERE EXTRACT(MONTH FROM payment_date) = EXTRACT(MONTH FROM CURRENT_DATE)
+                          AND EXTRACT(YEAR FROM payment_date) = EXTRACT(YEAR FROM CURRENT_DATE);
+                    """))
+                    monthly_income = float(rev_res.scalar() or 0.0)
+            except Exception:
+                pass
+
         results.append({
             "id": hostel.id,
             "name": hostel.name,
@@ -238,6 +299,53 @@ def get_hostels_list(db: Session, current_user: dict) -> list:
             "is_active": True,
             "owner_name": owner_name,
             "owner_email": owner_email,
-            "owner_phone": owner_phone
+            "owner_phone": owner_phone,
+            "image_url": hostel.image_url,
+            "occupied_beds": occupied_beds,
+            "monthly_income": monthly_income,
+            "total_hostelers": total_hostelers
         })
     return results
+
+def get_super_admin_stats(db: Session) -> dict:
+    """Fetch aggregated metrics directly from central and tenant databases."""
+    from sqlalchemy import create_engine, text
+    
+    # 1. Count hostels and owners in central DB
+    hostels_count = db.query(Hostel).filter(Hostel.is_deleted == False).count()
+    owners_count = db.query(Owner).filter(Owner.is_deleted == False).count()
+    
+    total_occupied_beds = 0
+    total_monthly_revenue = 0.0
+    
+    # 2. Get connection strings for all tenant databases
+    tenant_dbs = db.query(TenantDatabase).all()
+    
+    now = datetime.utcnow()
+    start_of_month = datetime(now.year, now.month, 1).date()
+    
+    for t_db in tenant_dbs:
+        db_url = f"postgresql://{t_db.db_username}:{t_db.db_password_hash}@{t_db.db_host}:{t_db.db_port}/{t_db.db_name}"
+        try:
+            engine = create_engine(db_url)
+            with engine.connect() as conn:
+                # Count occupied beds
+                beds_res = conn.execute(text("SELECT COUNT(*) FROM room_assignments WHERE is_active = true AND transferred_date IS NULL")).scalar()
+                total_occupied_beds += (beds_res or 0)
+                
+                # Sum monthly revenue (income)
+                rev_res = conn.execute(
+                    text("SELECT SUM(amount) FROM income WHERE payment_date >= :start"),
+                    {"start": start_of_month}
+                ).scalar()
+                if rev_res is not None:
+                    total_monthly_revenue += float(rev_res)
+        except Exception as e:
+            logger.error(f"Error querying tenant database {t_db.db_name} for dashboard metrics: {e}")
+            
+    return {
+        "total_hostels": hostels_count,
+        "total_owners": owners_count,
+        "occupied_beds": total_occupied_beds,
+        "monthly_revenue": total_monthly_revenue
+    }

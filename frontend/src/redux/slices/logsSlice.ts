@@ -10,8 +10,8 @@ interface LogsState {
 }
 
 const initialState: LogsState = {
-  logs: mockActivityLogs,
-  unreadCount: 3, // Initial unread notification count
+  logs: [],
+  unreadCount: 0,
   loading: false,
   error: null,
 };

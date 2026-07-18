@@ -25,12 +25,13 @@ export const ownerService = {
     }
   },
 
-  createOwner: async (owner: Omit<Owner, 'id'>): Promise<void> => {
+  createOwner: async (owner: Omit<Owner, 'id'> & { password?: string }): Promise<void> => {
     try {
       const response = await apiClient.post('/tenants/owners', {
         name: owner.name,
         email: owner.email,
-        phone: owner.phone
+        phone: owner.phone,
+        password: owner.password
       });
       
       const createdOwner: Owner = {

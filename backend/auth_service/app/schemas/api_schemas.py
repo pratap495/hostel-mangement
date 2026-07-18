@@ -82,13 +82,15 @@ class OwnerCreateRequest(BaseModel):
     email: EmailStr
     name: str = Field(..., min_length=1, max_length=100)
     phone: str = Field(..., min_length=10, max_length=20)
+    password: Optional[str] = None
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "email": "alex.mercer@hostelmint.com",
                 "name": "Alex Mercer",
-                "phone": "+919900112233"
+                "phone": "+919900112233",
+                "password": "SecurePassword123"
             }
         }
     }
@@ -126,6 +128,7 @@ class HostelCreateRequest(BaseModel):
     floors_count: int = Field(..., gt=0)
     rooms_count: int = Field(..., gt=0)
     owner_email: Optional[EmailStr] = None
+    image_url: Optional[str] = None
 
     model_config = {
         "json_schema_extra": {
@@ -134,7 +137,30 @@ class HostelCreateRequest(BaseModel):
                 "address": "45 Outer Ring Road, Bellandur, Bangalore - 560103",
                 "contact_number": "+918045678901",
                 "floors_count": 3,
-                "rooms_count": 30
+                "rooms_count": 30,
+                "image_url": "https://hostelmint.com/image.jpg"
+            }
+        }
+    }
+class HostelUpdateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=150)
+    address: str = Field(..., min_length=5)
+    contact_number: str = Field(..., min_length=10, max_length=20)
+    floors_count: int = Field(..., gt=0)
+    rooms_count: int = Field(..., gt=0)
+    owner_email: Optional[EmailStr] = None
+    image_url: Optional[str] = None
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "name": "HostelMint Elite Bangalore",
+                "address": "45 Outer Ring Road, Bellandur, Bangalore - 560103",
+                "contact_number": "+918045678901",
+                "floors_count": 3,
+                "rooms_count": 30,
+                "owner_email": "owner@hostelmint.com",
+                "image_url": "https://hostelmint.com/image.jpg"
             }
         }
     }
@@ -288,6 +314,10 @@ class HostelDetailsResponse(BaseModel):
     owner_name: Optional[str] = None
     owner_email: Optional[str] = None
     owner_phone: Optional[str] = None
+    image_url: Optional[str] = None
+    occupied_beds: Optional[int] = 0
+    monthly_income: Optional[float] = 0.0
+    total_hostelers: Optional[int] = 0
 
     model_config = {
         "from_attributes": True,
@@ -324,6 +354,23 @@ class UserProfileResponse(BaseModel):
                 "phone": "+919900112233",
                 "role": "owner",
                 "hostels_assigned": ["a9018c64-41c3-e83c-ab0b-47e289bf4055"]
+            }
+        }
+    }
+
+class DashboardStatsResponse(BaseModel):
+    total_hostels: int
+    total_owners: int
+    occupied_beds: int
+    monthly_revenue: float
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "total_hostels": 5,
+                "total_owners": 3,
+                "occupied_beds": 10,
+                "monthly_revenue": 150000.0
             }
         }
     }

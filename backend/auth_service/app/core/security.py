@@ -55,8 +55,9 @@ def get_current_user(request: Request, token: HTTPAuthorizationCredentials = Dep
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Block all operations except change-password and system health checks if first login password reset is required (restricted to Owner role)
-    if payload.get("force_reset") and payload.get("role") == "OWNER" and not (request.url.path.endswith("/change-password") or request.url.path.endswith("/health")):
+    # Block all operations except change-password, /me (profile fetch), and system health checks if first login password reset is required (restricted to Owner role)
+    allowed_paths = ("/change-password", "/health", "/me")
+    if payload.get("force_reset") and payload.get("role") == "OWNER" and not any(request.url.path.endswith(p) for p in allowed_paths):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="FORCE_PASSWORD_RESET_REQUIRED: Please set your new password before accessing system resources."

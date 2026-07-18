@@ -35,7 +35,7 @@ const ownerSchema = yup.object().shape({
   name: yup.string().required('Full name is required'),
   email: yup.string().required('Email is required').email('Enter a valid email address'),
   phone: yup.string().required('Phone number is required').matches(/^[6-9]\d{9}$/, 'Enter a valid 10-digit mobile number'),
-  password: yup.string().required('Password is required').min(6, 'Password must be at least 6 characters'),
+  password: yup.string().required('Password is required').min(8, 'Password must be at least 8 characters'),
 });
 
 export default function CreateOwnerScreen({ route, navigation }: Props) {
@@ -158,6 +158,7 @@ export default function CreateOwnerScreen({ route, navigation }: Props) {
           name: data.name,
           email: data.email,
           phone: data.phone,
+          password: data.password,
           hostelsAssigned: selectedHostels,
           isActive: true,
           photoUrl: photoUrl,

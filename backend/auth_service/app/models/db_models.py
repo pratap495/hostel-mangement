@@ -38,6 +38,7 @@ class Hostel(Base):
     rooms_count = Column(Integer, nullable=False)
     is_deleted = Column(Boolean, default=False)
     deleted_at = Column(DateTime, nullable=True)
+    image_url = Column(String(500), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
 class OwnerHostel(Base):

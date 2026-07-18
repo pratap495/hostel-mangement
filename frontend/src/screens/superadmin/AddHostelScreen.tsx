@@ -26,6 +26,7 @@ import TextInput from '../../components/TextInput';
 import PrimaryButton from '../../components/PrimaryButton';
 import HostelPhotoUploader from '../../components/HostelPhotoUploader';
 import { hostelService } from '../../services/hostelService';
+import { storageService } from '../../services/storageService';
 
 type Props = NativeStackScreenProps<HostelStackParamList, 'AddHostel'>;
 
@@ -35,9 +36,9 @@ const hostelSchema = yup.object().shape({
   contactNumber: yup.string().required('Contact number is required'),
   floorsCount: yup.number().typeError('Floors must be a number').required('Number of floors is required').min(1, 'Minimum 1 floor required'),
   roomsCount: yup.number().typeError('Rooms must be a number').required('Number of rooms is required').min(1, 'Minimum 1 room required'),
-  ownerName: yup.string().required('Owner name is required'),
-  ownerEmail: yup.string().email('Enter a valid owner email').required('Owner email is required'),
-  ownerPhone: yup.string().required('Owner phone number is required'),
+  ownerName: yup.string().optional(),
+  ownerEmail: yup.string().email('Enter a valid owner email').optional().nullable(),
+  ownerPhone: yup.string().optional(),
 });
 
 export default function AddHostelScreen({ route, navigation }: Props) {
@@ -149,6 +150,9 @@ export default function AddHostelScreen({ route, navigation }: Props) {
     }
     setLoading(true);
     try {
+      // 1. Upload local photo to MinIO / S3
+      const uploadedUrl = await storageService.uploadImage(imageUrl);
+
       if (isEditMode && existingHostel) {
         await hostelService.updateHostel({
           ...existingHostel,
@@ -160,7 +164,7 @@ export default function AddHostelScreen({ route, navigation }: Props) {
           ownerName: data.ownerName,
           ownerEmail: data.ownerEmail,
           ownerPhone: data.ownerPhone,
-          imageUrl,
+          imageUrl: uploadedUrl,
         });
         navigation.replace('HostelDetails', { hostelId: existingHostel.id });
       } else {
@@ -173,7 +177,7 @@ export default function AddHostelScreen({ route, navigation }: Props) {
           ownerName: data.ownerName,
           ownerEmail: data.ownerEmail,
           ownerPhone: data.ownerPhone,
-          imageUrl,
+          imageUrl: uploadedUrl,
           isActive: true,
         });
         navigation.replace('HostelDetails', { hostelId: hostel.id });

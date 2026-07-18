@@ -33,9 +33,15 @@ export default function HostelDetailsScreen({ route, navigation }: Props) {
   const linkedOwner = owners.find(owner => owner.hostelsAssigned.includes(hostel.id));
   const owner = { name: hostel.ownerName || linkedOwner?.name || 'Not assigned', email: hostel.ownerEmail || linkedOwner?.email || 'Not available', phone: hostel.ownerPhone || linkedOwner?.phone || 'Not available' };
   const hostelRooms = rooms.filter(room => room.hostelId === hostel.id);
-  const occupied = hostelRooms.reduce((total, room) => total + room.occupiedCount, 0);
-  const totalHostelers = hostelers.filter(hosteler => hosteler.hostelId === hostel.id && hosteler.isActive).length;
-  const income = transactions.filter(item => item.hostelId === hostel.id && item.type === 'income').reduce((total, item) => total + item.amount, 0);
+  const occupied = hostelRooms.length > 0
+    ? hostelRooms.reduce((total, room) => total + room.occupiedCount, 0)
+    : (hostel.occupiedBeds || 0);
+  const totalHostelers = hostelers.some(hosteler => hosteler.hostelId === hostel.id)
+    ? hostelers.filter(hosteler => hosteler.hostelId === hostel.id && hosteler.isActive).length
+    : (hostel.totalHostelers || 0);
+  const income = transactions.some(item => item.hostelId === hostel.id)
+    ? transactions.filter(item => item.hostelId === hostel.id && item.type === 'income').reduce((total, item) => total + item.amount, 0)
+    : (hostel.monthlyIncome || 0);
 
   const newOwnerEmail = (route.params as any)?.newOwnerEmail;
 

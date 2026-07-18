@@ -27,7 +27,7 @@ import { colors, typography, radius } from '../../theme';
 
 const passwordSchema = yup.object().shape({
   currentPassword: yup.string().required('Current password is required'),
-  newPassword: yup.string().required('New password is required').min(6, 'Password must be at least 6 characters'),
+  newPassword: yup.string().required('New password is required').min(8, 'Password must be at least 8 characters'),
   confirmPassword: yup.string().required('Confirm new password is required').oneOf([yup.ref('newPassword')], 'Passwords must match'),
 });
 

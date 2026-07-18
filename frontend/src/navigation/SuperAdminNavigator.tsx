@@ -71,8 +71,8 @@ const CustomDrawerContent = (props: any) => {
 
   const menu = [
     { label: 'Dashboard', icon: 'grid-outline', routeName: 'AdminDashboard', go: () => props.navigation.navigate('AdminDashboard') },
-    { label: 'Hostel Management', icon: 'business-outline', routeName: 'AdminHostels', go: () => props.navigation.navigate('AdminHostels') },
-    { label: 'Owner Management', icon: 'people-outline', routeName: 'AdminOwners', go: () => props.navigation.navigate('AdminOwners') },
+    { label: 'Hostel Management', icon: 'business-outline', routeName: 'AdminHostels', go: () => props.navigation.navigate('AdminHostels', { screen: 'HostelList' }) },
+    { label: 'Owner Management', icon: 'people-outline', routeName: 'AdminOwners', go: () => props.navigation.navigate('AdminOwners', { screen: 'OwnerList' }) },
     { label: 'Activity Log', icon: 'time-outline', routeName: 'AdminLogs', go: () => props.navigation.navigate('AdminLogs') },
     { label: 'Notifications', icon: 'notifications-outline', routeName: 'AdminNotifications', go: () => props.navigation.navigate('AdminNotifications') },
     { label: 'Settings', icon: 'settings-outline', routeName: 'AdminProfile', go: () => props.navigation.navigate('AdminProfile') },

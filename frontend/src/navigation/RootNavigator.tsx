@@ -8,6 +8,12 @@ import OwnerNavigator from './OwnerNavigator';
 import HostelSelectionScreen from '../screens/auth/HostelSelectionScreen';
 import NoHostelsScreen from '../screens/auth/NoHostelsScreen';
 import { colors } from '../theme';
+import { hostelService } from '../services/hostelService';
+import { ownerService } from '../services/ownerService';
+import { roomService } from '../services/roomService';
+import { hostelerService } from '../services/hostelerService';
+import { financeService } from '../services/financeService';
+import { notificationService } from '../services/notificationService';
 
 export const RootNavigator = () => {
   const dispatch = useAppDispatch();
@@ -21,9 +27,33 @@ export const RootNavigator = () => {
   }, [user, activeRole, owners]);
 
   const assignedHostels = React.useMemo(() => {
+    if (activeRole === 'owner') {
+      // Backend already filters GET /tenants/hostels to only the owner's assigned hostels,
+      // so we can use the full hostels list directly without depending on the owners slice
+      // (which is Super Admin only and returns 403 for owner-role requests).
+      return hostels.filter(h => h.isActive);
+    }
     if (!owner) return [];
     return hostels.filter(h => owner.hostelsAssigned.includes(h.id) && h.isActive);
-  }, [owner, hostels]);
+  }, [owner, hostels, activeRole]);
+
+  // Automatically fetch live backend data on login or hostel switch
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      if (activeRole === 'super_admin') {
+        hostelService.getHostels();
+        ownerService.getOwners();
+      } else if (activeRole === 'owner') {
+        hostelService.getHostels(); // Returns only this owner's hostels (filtered by backend)
+        if (activeHostelId) {
+          roomService.getRooms();
+          hostelerService.getHostelers();
+          financeService.getTransactions();
+          notificationService.getNotifications();
+        }
+      }
+    }
+  }, [isAuthenticated, activeRole, activeHostelId]);
 
   React.useEffect(() => {
     if (activeRole === 'owner' && assignedHostels.length === 1 && !activeHostelId) {

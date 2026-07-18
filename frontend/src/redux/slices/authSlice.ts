@@ -11,6 +11,7 @@ interface AuthState {
   loading: boolean;
   error: string | null;
   hasLoggedOut: boolean;
+  forceReset: boolean;
 }
 
 const initialState: AuthState = {
@@ -22,6 +23,7 @@ const initialState: AuthState = {
   loading: false,
   error: null,
   hasLoggedOut: false,
+  forceReset: false,
 };
 
 const authSlice = createSlice({
@@ -33,7 +35,7 @@ const authSlice = createSlice({
       state.error = null;
       state.hasLoggedOut = false;
     },
-    loginSuccess(state, action: PayloadAction<{ user: User; token: string; activeHostelId?: string }>) {
+    loginSuccess(state, action: PayloadAction<{ user: User; token: string; activeHostelId?: string; forceReset?: boolean }>) {
       state.isAuthenticated = true;
       state.user = action.payload.user;
       state.token = action.payload.token;
@@ -42,6 +44,7 @@ const authSlice = createSlice({
       state.loading = false;
       state.error = null;
       state.hasLoggedOut = true;
+      state.forceReset = action.payload.forceReset || false;
     },
     loginFailure(state, action: PayloadAction<string>) {
       state.loading = false;
@@ -68,7 +71,11 @@ const authSlice = createSlice({
     changePasswordSuccess(state) {
       state.loading = false;
       state.error = null;
-    }
+      state.forceReset = false;
+    },
+    clearForceReset(state) {
+      state.forceReset = false;
+    },
   },
 });
 
@@ -80,6 +87,7 @@ export const {
   setActiveHostel,
   updateProfilePhoto,
   changePasswordSuccess,
+  clearForceReset,
 } = authSlice.actions;
 
 export default authSlice.reducer;

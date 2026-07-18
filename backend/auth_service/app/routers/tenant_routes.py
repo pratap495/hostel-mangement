@@ -6,13 +6,13 @@ from app.core.database import get_admin_db
 from app.core.security import get_current_user
 from app.schemas.api_schemas import (
     OwnerCreateRequest, OwnerCreateResponse, 
-    StatusChangeRequest, HostelCreateRequest, HostelCreateResponse,
-    SuccessResponse, ErrorResponse, OwnerDetailsResponse, HostelDetailsResponse
+    StatusChangeRequest, HostelCreateRequest, HostelCreateResponse, HostelUpdateRequest,
+    SuccessResponse, ErrorResponse, OwnerDetailsResponse, HostelDetailsResponse, DashboardStatsResponse
 )
 from app.controllers.tenant_controller import (
     create_owner_account, update_owner_status, 
     soft_delete_owner_account, provision_hostel_and_db, log_activity,
-    get_owners_list, get_hostels_list
+    get_owners_list, get_hostels_list, update_hostel_details, get_super_admin_stats
 )
 
 router = APIRouter(
@@ -124,6 +124,32 @@ def create_hostel(
     """Onboard new hostel metadata and provision its dynamic PostgreSQL tenant database (Super Admin only)."""
     return provision_hostel_and_db(db, request)
 
+@router.put(
+    "/hostels/{hostel_id}",
+    response_model=SuccessResponse,
+    responses={
+        200: {
+            "model": SuccessResponse,
+            "description": "Successful Response",
+            "content": {"application/json": {"example": {"message": "Hostel updated successfully."}}}
+        },
+        404: {
+            "model": ErrorResponse,
+            "description": "Not Found Error",
+            "content": {"application/json": {"example": {"detail": "Hostel not found"}}}
+        }
+    }
+)
+def update_hostel(
+    hostel_id: UUID,
+    request: HostelUpdateRequest,
+    db: Session = Depends(get_admin_db),
+    admin: dict = Depends(require_super_admin)
+):
+    """Update hostel metadata details and reassign/set owner mapping (Super Admin only)."""
+    res = update_hostel_details(db, str(hostel_id), request)
+    return {"message": "Hostel updated successfully."}
+
 @router.post(
     "/activity-log", 
     response_model=SuccessResponse,
@@ -182,3 +208,14 @@ def list_hostels(
 ):
     """List hostels filtered by active user context (Super Admin gets all, Owner gets their own)."""
     return get_hostels_list(db, current_user)
+
+@router.get(
+    "/dashboard-stats",
+    response_model=DashboardStatsResponse
+)
+def get_dashboard_stats(
+    db: Session = Depends(get_admin_db),
+    admin: dict = Depends(require_super_admin)
+):
+    """Retrieve aggregated Super Admin dashboard statistics across all tenant databases."""
+    return get_super_admin_stats(db)

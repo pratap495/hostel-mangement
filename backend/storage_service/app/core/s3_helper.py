@@ -19,6 +19,8 @@ except Exception as e:
     logger.error(f"Failed to connect to MinIO/S3 object storage: {e}")
     s3_client = None
 
+import json
+
 def ensure_bucket_exists():
     """Verify that the secure file vault bucket exists on object storage. Creates it if missing."""
     if not s3_client:
@@ -34,6 +36,29 @@ def ensure_bucket_exists():
             logger.info(f"Secure bucket '{settings.S3_BUCKET_NAME}' created successfully.")
         except Exception as e:
             logger.error(f"Could not create storage bucket: {e}")
+            return
+
+    # Apply public-read policy so React Native client can render uploaded images directly (s3:GetObject only)
+    try:
+        policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Sid": "PublicRead",
+                    "Effect": "Allow",
+                    "Principal": "*",
+                    "Action": ["s3:GetObject"],
+                    "Resource": [f"arn:aws:s3:::{settings.S3_BUCKET_NAME}/*"]
+                }
+            ]
+        }
+        s3_client.put_bucket_policy(
+            Bucket=settings.S3_BUCKET_NAME,
+            Policy=json.dumps(policy)
+        )
+        logger.info(f"Public-read policy applied to S3 bucket '{settings.S3_BUCKET_NAME}'.")
+    except Exception as e:
+        logger.error(f"Failed to set public policy on bucket: {e}")
 
 def get_presigned_download_url(file_key: str, expires_in: int = 120) -> str:
     """Generate a secure, short-lived presigned GET URL (120-second validity constraint) (Task 7.2)."""

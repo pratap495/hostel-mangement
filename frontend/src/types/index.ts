@@ -20,6 +20,9 @@ export interface Hostel {
   ownerEmail: string;
   ownerPhone: string;
   isActive: boolean;
+  occupiedBeds?: number;
+  monthlyIncome?: number;
+  totalHostelers?: number;
 }
 
 export interface Owner {

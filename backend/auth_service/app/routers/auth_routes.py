@@ -177,7 +177,7 @@ def get_me(
         
     # Get assigned hostels
     assigned = db.query(OwnerHostel.hostel_id).filter(OwnerHostel.owner_id == owner.id).all()
-    hostels_assigned = [row[0] for row in assigned]
+    hostels_assigned = [str(row[0]) for row in assigned]  # Convert UUID → string for frontend compatibility
     
     return {
         "id": owner.id,

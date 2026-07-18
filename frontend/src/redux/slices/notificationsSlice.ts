@@ -9,7 +9,7 @@ interface NotificationsState {
 }
 
 const initialState: NotificationsState = {
-  notifications: mockNotifications,
+  notifications: [],
   loading: false,
   error: null,
 };

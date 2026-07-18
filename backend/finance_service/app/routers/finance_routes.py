@@ -2,18 +2,20 @@ from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.orm import Session
 from uuid import UUID
 from datetime import date
-from typing import Optional
+from typing import Optional, List
 from app.core.tenant_middleware import get_tenant_db
 from app.core.security import require_owner_or_admin
 from app.schemas.api_schemas import (
     IncomeCreateRequest, IncomeResponse, ExpenseCreateRequest, ExpenseResponse,
     InventoryCreateRequest, InventoryResponse, InventoryEditRequest,
     FinancialSummaryResponse, PaginatedInventoryResponse,
-    SuccessResponse, ErrorResponse, HealthResponse, AssetActionResponse
+    SuccessResponse, ErrorResponse, HealthResponse, AssetActionResponse,
+    TransactionResponse
 )
 from app.controllers.finance_controller import (
     add_income, add_expense, list_assets, create_asset, edit_asset,
-    soft_delete_asset, restore_asset, get_financial_summary
+    soft_delete_asset, restore_asset, get_financial_summary,
+    get_transactions_list
 )
 
 router = APIRouter(prefix="/finance", tags=["Finance Ledger"])
@@ -184,3 +186,15 @@ def get_ledger_summary(
 ):
     """Get calculated sum of income, expenses, and net profit report metrics (Task 5.5)."""
     return get_financial_summary(db, start_date, end_date)
+
+@router.get(
+    "/transactions",
+    response_model=List[TransactionResponse]
+)
+def get_transactions(
+    db: Session = Depends(get_tenant_db),
+    user: dict = Depends(require_owner_or_admin)
+):
+    """Get combined ledger transactions list (incomes + expenses)."""
+    hostel_id = user.get("hostel_id") or "dummy_hostel"
+    return get_transactions_list(db, str(hostel_id))

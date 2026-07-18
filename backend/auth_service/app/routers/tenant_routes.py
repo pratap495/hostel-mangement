@@ -1,16 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from uuid import UUID
+from typing import List
 from app.core.database import get_admin_db
 from app.core.security import get_current_user
 from app.schemas.api_schemas import (
     OwnerCreateRequest, OwnerCreateResponse, 
     StatusChangeRequest, HostelCreateRequest, HostelCreateResponse,
-    SuccessResponse, ErrorResponse
+    SuccessResponse, ErrorResponse, OwnerDetailsResponse, HostelDetailsResponse
 )
 from app.controllers.tenant_controller import (
     create_owner_account, update_owner_status, 
-    soft_delete_owner_account, provision_hostel_and_db, log_activity
+    soft_delete_owner_account, provision_hostel_and_db, log_activity,
+    get_owners_list, get_hostels_list
 )
 
 router = APIRouter(
@@ -158,3 +160,25 @@ def create_activity_log(
         user_agent=user_agent
     )
     return {"message": "Activity log recorded successfully."}
+
+@router.get(
+    "/owners",
+    response_model=List[OwnerDetailsResponse]
+)
+def list_owners(
+    db: Session = Depends(get_admin_db),
+    admin: dict = Depends(require_super_admin)
+):
+    """List all registered Owner profiles (Super Admin only)."""
+    return get_owners_list(db)
+
+@router.get(
+    "/hostels",
+    response_model=List[HostelDetailsResponse]
+)
+def list_hostels(
+    db: Session = Depends(get_admin_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """List hostels filtered by active user context (Super Admin gets all, Owner gets their own)."""
+    return get_hostels_list(db, current_user)

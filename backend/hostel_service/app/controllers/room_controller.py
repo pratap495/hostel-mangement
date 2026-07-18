@@ -186,3 +186,24 @@ def restore_room_item(db: Session, room_id: str) -> dict:
     room.deleted_at = None
     db.commit()
     return {"room_id": room.id, "status": "restored"}
+
+def get_rooms_list(db: Session) -> list:
+    """Fetch all active rooms and dynamically count active occupancies."""
+    rooms = db.query(Room).filter(Room.is_deleted == False).all()
+    results = []
+    for room in rooms:
+        occupied_count = db.query(RoomAssignment).filter(
+            RoomAssignment.room_id == room.id,
+            RoomAssignment.is_active == True
+        ).count()
+        results.append({
+            "id": room.id,
+            "room_number": room.room_number,
+            "floor": room.floor,
+            "room_type": room.room_type,
+            "capacity": room.capacity,
+            "monthly_rent": room.monthly_rent,
+            "occupiedCount": occupied_count,
+            "created_at": room.created_at
+        })
+    return results

@@ -5,13 +5,14 @@ from app.core.security import get_current_user
 from app.schemas.api_schemas import (
     LoginRequest, LoginResponse, PasswordChangeRequest, 
     ForgotPasswordRequest, ResetPasswordRequest, OTPLoginRequest,
-    SuccessResponse, ErrorResponse, HealthResponse
+    SuccessResponse, ErrorResponse, HealthResponse, UserProfileResponse
 )
 from app.controllers.auth_controller import (
     login_user, change_user_password, request_forgot_password_otp, 
     verify_reset_password_otp, request_login_otp, verify_login_otp
 )
-
+from app.models.db_models import Owner, OwnerHostel
+import uuid
 router = APIRouter(
     prefix="/auth", 
     tags=["Authentication"]
@@ -147,4 +148,43 @@ def request_login_code(email: str = Query(..., description="Registered owner ema
 def verify_login_code(request: OTPLoginRequest, db: Session = Depends(get_admin_db)):
     """Authenticate and issue JWT token using passwordless login OTP."""
     return verify_login_otp(db, request)
+
+@router.get(
+    "/me",
+    response_model=UserProfileResponse
+)
+def get_me(
+    db: Session = Depends(get_admin_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Retrieve active user profile details (based on current JWT token)."""
+    user_id = current_user.get("sub")
+    role = current_user.get("role")
+    
+    if role == "SUPER_ADMIN":
+        return {
+            "id": uuid.UUID(str(user_id)),
+            "email": "superadmin@hostelmint.com",
+            "name": "Super Admin",
+            "phone": "9999999999",
+            "role": "super_admin",
+            "hostels_assigned": []
+        }
+        
+    owner = db.query(Owner).filter(Owner.id == uuid.UUID(str(user_id))).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner profile not found.")
+        
+    # Get assigned hostels
+    assigned = db.query(OwnerHostel.hostel_id).filter(OwnerHostel.owner_id == owner.id).all()
+    hostels_assigned = [row[0] for row in assigned]
+    
+    return {
+        "id": owner.id,
+        "email": owner.email,
+        "name": owner.name,
+        "phone": owner.phone,
+        "role": "owner",
+        "hostels_assigned": hostels_assigned
+    }
 

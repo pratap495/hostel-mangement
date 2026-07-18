@@ -252,3 +252,35 @@ class PaginatedInventoryResponse(BaseModel):
             }
         }
     }
+
+class TransactionResponse(BaseModel):
+    id: UUID
+    hostel_id: str
+    type: str # 'income' or 'expense'
+    category: str
+    amount: Decimal
+    date: date
+    payment_mode: Optional[str] = None
+    hosteler_id: Optional[UUID] = None
+    hosteler_name: Optional[str] = None
+    description: Optional[str] = None
+    receipt_url: Optional[str] = None
+
+    model_config = {
+        "from_attributes": True,
+        "json_schema_extra": {
+            "example": {
+                "id": "e4b21d89-9a7c-47bc-8a21-987d1a293b8e",
+                "hostel_id": "a9018c64-41c3-e83c-ab0b-47e289bf4055",
+                "type": "income",
+                "category": "Rent",
+                "amount": 6000.00,
+                "date": "2026-07-13",
+                "payment_mode": "upi",
+                "hosteler_id": "a2e7f496-7f3c-493c-82ab-5de9d5770ac1",
+                "hosteler_name": "Resident A",
+                "description": "Rent payment from Resident A",
+                "receipt_url": "receipts/a9018c64-41c3-e83c-ab0b-47e289bf4055/income_e4b21d89.pdf"
+            }
+        }
+    }

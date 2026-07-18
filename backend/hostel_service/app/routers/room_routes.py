@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from uuid import UUID
+from typing import List
 from app.core.tenant_middleware import get_tenant_db
 from app.core.security import require_owner_or_admin
 from app.schemas.api_schemas import (
@@ -8,7 +9,8 @@ from app.schemas.api_schemas import (
     RoomAssignmentResponse, RoomActionResponse, ErrorResponse, HealthResponse
 )
 from app.controllers.room_controller import (
-    add_room, allocate_bed, transfer_hosteler_room, soft_delete_room, restore_room_item
+    add_room, allocate_bed, transfer_hosteler_room, soft_delete_room, restore_room_item,
+    get_rooms_list
 )
 
 router = APIRouter(prefix="/rooms", tags=["Rooms Operations"])
@@ -32,6 +34,17 @@ def create_room(
 ):
     """Add a new room to the active hostel inventory (Owner/Admin only)."""
     return add_room(db, request)
+
+@router.get(
+    "",
+    response_model=List[RoomResponse]
+)
+def get_rooms(
+    db: Session = Depends(get_tenant_db),
+    user: dict = Depends(require_owner_or_admin)
+):
+    """Get active rooms listing (Owner/Admin only)."""
+    return get_rooms_list(db)
 
 @router.get(
     "/health", 

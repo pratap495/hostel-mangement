@@ -165,7 +165,6 @@ def provision_hostel_and_db(db: Session, request: HostelCreateRequest) -> dict:
             detail=f"Dynamic database migration upgrade failed: {e}"
         )
 
-    # 3. Save connection record in Central tenant DB registry
     tenant_db = TenantDatabase(
         hostel_id=new_hostel.id,
         db_name=db_name,
@@ -175,6 +174,13 @@ def provision_hostel_and_db(db: Session, request: HostelCreateRequest) -> dict:
         db_password_hash=parsed.password or "password123"
     )
     db.add(tenant_db)
+    
+    if request.owner_email:
+        owner = db.query(Owner).filter(Owner.email == request.owner_email, Owner.is_deleted == False).first()
+        if owner:
+            mapping = OwnerHostel(owner_id=owner.id, hostel_id=new_hostel.id)
+            db.add(mapping)
+            
     db.commit()
     
     return {
@@ -182,3 +188,56 @@ def provision_hostel_and_db(db: Session, request: HostelCreateRequest) -> dict:
         "db_name": db_name,
         "status": "provisioned_and_migrated"
     }
+
+def get_owners_list(db: Session) -> list:
+    """Fetch all active owner accounts and their linked hostels."""
+    owners = db.query(Owner).filter(Owner.is_deleted == False).all()
+    results = []
+    for owner in owners:
+        assigned = db.query(OwnerHostel.hostel_id).filter(OwnerHostel.owner_id == owner.id).all()
+        hostels_assigned = [row[0] for row in assigned]
+        results.append({
+            "id": owner.id,
+            "email": owner.email,
+            "name": owner.name,
+            "phone": owner.phone,
+            "is_active": owner.is_active,
+            "hostels_assigned": hostels_assigned
+        })
+    return results
+
+def get_hostels_list(db: Session, current_user: dict) -> list:
+    """Fetch active hostels filtered by user permission context (Super Admin or Owner)."""
+    user_id = uuid.UUID(str(current_user.get("sub")))
+    role = current_user.get("role")
+    
+    if role == "SUPER_ADMIN":
+        hostels = db.query(Hostel).filter(Hostel.is_deleted == False).all()
+    else:
+        hostels = db.query(Hostel).join(OwnerHostel, OwnerHostel.hostel_id == Hostel.id)\
+                    .filter(OwnerHostel.owner_id == user_id, Hostel.is_deleted == False).all()
+                    
+    results = []
+    for hostel in hostels:
+        owner_mapping = db.query(OwnerHostel).filter(OwnerHostel.hostel_id == hostel.id).first()
+        owner_name, owner_email, owner_phone = None, None, None
+        if owner_mapping:
+            owner = db.query(Owner).filter(Owner.id == owner_mapping.owner_id).first()
+            if owner:
+                owner_name = owner.name
+                owner_email = owner.email
+                owner_phone = owner.phone
+                
+        results.append({
+            "id": hostel.id,
+            "name": hostel.name,
+            "address": hostel.address,
+            "contact_number": hostel.contact_number,
+            "floors_count": hostel.floors_count,
+            "rooms_count": hostel.rooms_count,
+            "is_active": True,
+            "owner_name": owner_name,
+            "owner_email": owner_email,
+            "owner_phone": owner_phone
+        })
+    return results

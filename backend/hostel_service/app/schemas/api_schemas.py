@@ -132,6 +132,7 @@ class RoomResponse(BaseModel):
     room_type: str
     capacity: int
     monthly_rent: Decimal
+    occupiedCount: int = 0
     created_at: datetime
 
     model_config = {
@@ -226,6 +227,10 @@ class HostelerResponse(BaseModel):
     photo_url: Optional[str] = None
     aadhaar_front_url: Optional[str] = None
     aadhaar_back_url: Optional[str] = None
+    room_id: Optional[UUID] = None
+    bed_number: Optional[int] = None
+    is_rent_overdue: bool = False
+    rent_amount_due: Decimal = Decimal("0.00")
     created_at: datetime
 
     model_config = {

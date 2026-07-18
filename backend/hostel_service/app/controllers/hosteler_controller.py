@@ -11,21 +11,44 @@ from app.core.s3_helper import get_presigned_download_url
 
 logger = logging.getLogger(__name__)
 
-def inject_presigned_urls(hosteler: Hosteler) -> Hosteler:
-    """Dynamically inject short-lived S3 download URLs for photo and Aadhaar keys (Task 7.2)."""
-    if hosteler:
-        # Generate presigned download links valid for 120 seconds (Section 3.6)
-        if hosteler.photo_url:
-            hosteler.photo_url = get_presigned_download_url(hosteler.photo_url, expires_in=120)
-        if hosteler.aadhaar_front_url:
-            hosteler.aadhaar_front_url = get_presigned_download_url(hosteler.aadhaar_front_url, expires_in=120)
-        if hosteler.aadhaar_back_url:
-            hosteler.aadhaar_back_url = get_presigned_download_url(hosteler.aadhaar_back_url, expires_in=120)
-    return hosteler
+def to_hosteler_response(db: Session, hosteler: Hosteler) -> dict:
+    """Map the Hosteler model and its active RoomAssignment to the flat HostelerResponse dictionary."""
+    if not hosteler:
+        return None
+        
+    active_assignment = db.query(RoomAssignment).filter(
+        RoomAssignment.hosteler_id == hosteler.id,
+        RoomAssignment.is_active == True
+    ).first()
+    
+    photo_url = get_presigned_download_url(hosteler.photo_url, expires_in=120) if hosteler.photo_url else None
+    aadhaar_front_url = get_presigned_download_url(hosteler.aadhaar_front_url, expires_in=120) if hosteler.aadhaar_front_url else None
+    aadhaar_back_url = get_presigned_download_url(hosteler.aadhaar_back_url, expires_in=120) if hosteler.aadhaar_back_url else None
+    
+    return {
+        "id": hosteler.id,
+        "name": hosteler.name,
+        "phone": hosteler.phone,
+        "email": hosteler.email,
+        "permanent_address": hosteler.permanent_address,
+        "emergency_contact_name": hosteler.emergency_contact_name,
+        "emergency_contact_phone": hosteler.emergency_contact_phone,
+        "date_of_joining": hosteler.date_of_joining,
+        "date_of_vacating": hosteler.date_of_vacating,
+        "vacate_reason": hosteler.vacate_reason,
+        "is_active": hosteler.is_active,
+        "photo_url": photo_url,
+        "aadhaar_front_url": aadhaar_front_url,
+        "aadhaar_back_url": aadhaar_back_url,
+        "room_id": active_assignment.room_id if active_assignment else None,
+        "bed_number": active_assignment.bed_number if active_assignment else None,
+        "is_rent_overdue": False,
+        "rent_amount_due": 0.00,
+        "created_at": hosteler.created_at
+    }
 
-def register_hosteler(db: Session, request: HostelerCreateRequest) -> Hosteler:
+def register_hosteler(db: Session, request: HostelerCreateRequest) -> dict:
     """Register a new Resident Profile with S3 document keys (Task 4.3)."""
-    # Check active resident duplicate phone
     existing = db.query(Hosteler).filter(
         Hosteler.phone == request.phone,
         Hosteler.is_deleted == False,
@@ -46,7 +69,6 @@ def register_hosteler(db: Session, request: HostelerCreateRequest) -> Hosteler:
         emergency_contact_phone=request.emergency_contact_phone,
         date_of_joining=request.date_of_joining,
         is_active=True,
-        # Store raw keys in DB
         photo_url=request.photo_key,
         aadhaar_front_url=request.aadhaar_front_key,
         aadhaar_back_url=request.aadhaar_back_key
@@ -55,9 +77,9 @@ def register_hosteler(db: Session, request: HostelerCreateRequest) -> Hosteler:
     db.add(new_hosteler)
     db.commit()
     db.refresh(new_hosteler)
-    return inject_presigned_urls(new_hosteler)
+    return to_hosteler_response(db, new_hosteler)
 
-def edit_hosteler_profile(db: Session, hosteler_id: str, request: HostelerEditRequest) -> Hosteler:
+def edit_hosteler_profile(db: Session, hosteler_id: str, request: HostelerEditRequest) -> dict:
     """Edit resident profile details. Handles vacating/deactivating logic (Task 4.2.1)."""
     hosteler = db.query(Hosteler).filter(Hosteler.id == hosteler_id, Hosteler.is_deleted == False).first()
     if not hosteler:
@@ -65,9 +87,7 @@ def edit_hosteler_profile(db: Session, hosteler_id: str, request: HostelerEditRe
         
     update_data = request.dict(exclude_unset=True)
     
-    # Handle check-out vacating logic
     if "is_active" in update_data and update_data["is_active"] is False:
-        # Mark active assignment inactive
         active_assignment = db.query(RoomAssignment).filter(
             RoomAssignment.hosteler_id == hosteler_id,
             RoomAssignment.is_active == True
@@ -84,7 +104,7 @@ def edit_hosteler_profile(db: Session, hosteler_id: str, request: HostelerEditRe
         
     db.commit()
     db.refresh(hosteler)
-    return inject_presigned_urls(hosteler)
+    return to_hosteler_response(db, hosteler)
 
 def search_residents(
     db: Session, 
@@ -98,35 +118,28 @@ def search_residents(
     """Search and filter hostelers with offset pagination (Task 4.6 / Task 3.10)."""
     query = db.query(Hosteler).filter(Hosteler.is_deleted == False)
     
-    # Filter by active status
     if is_active is not None:
         query = query.filter(Hosteler.is_active == is_active)
         
-    # Search by Name or Phone
     if search:
         search_filter = f"%{search}%"
         query = query.filter(or_(Hosteler.name.ilike(search_filter), Hosteler.phone.ilike(search_filter)))
         
-    # Filter by Joining Date
     if joining_date:
         query = query.filter(Hosteler.date_of_joining == joining_date)
         
-    # Filter by Room Number (Requires join query)
     if room_number:
         query = query.join(RoomAssignment, RoomAssignment.hosteler_id == Hosteler.id)\
                      .join(Room, Room.id == RoomAssignment.room_id)\
                      .filter(Room.room_number == room_number, RoomAssignment.is_active == True)
                      
-    # Total count for pagination
     total_records = query.count()
     total_pages = (total_records + limit - 1) // limit
     
-    # Fetch paginated slice
     offset = (page - 1) * limit
     results = query.order_by(Hosteler.created_at.desc()).offset(offset).limit(limit).all()
     
-    # Generate presigned download links for return payload
-    final_data = [inject_presigned_urls(h) for h in results]
+    final_data = [to_hosteler_response(db, h) for h in results]
     
     return {
         "data": final_data,

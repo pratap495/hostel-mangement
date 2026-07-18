@@ -199,3 +199,50 @@ def uuid_generate() -> str:
     """Generate a clean UUID string wrapper."""
     import uuid
     return str(uuid.uuid4())
+
+def get_transactions_list(db: Session, hostel_id: str) -> list:
+    """Fetch combined income and expense logs mapped to the unified TransactionResponse schema."""
+    incomes = db.query(Income).all()
+    expenses = db.query(Expense).all()
+
+    transactions = []
+    for inc in incomes:
+        # Get hosteler details (if mapped)
+        h_name = None
+        if inc.hosteler_id:
+            hosteler = db.query(Hosteler).filter(Hosteler.id == inc.hosteler_id).first()
+            if hosteler:
+                h_name = hosteler.name
+                
+        transactions.append({
+            "id": inc.id,
+            "hostel_id": hostel_id,
+            "type": "income",
+            "category": "Rent",
+            "amount": inc.amount,
+            "date": inc.payment_date,
+            "payment_mode": inc.payment_mode,
+            "hosteler_id": inc.hosteler_id,
+            "hosteler_name": h_name,
+            "description": f"Rent payment from {h_name}" if h_name else "Rent payment",
+            "receipt_url": inc.receipt_url
+        })
+        
+    for exp in expenses:
+        transactions.append({
+            "id": exp.id,
+            "hostel_id": hostel_id,
+            "type": "expense",
+            "category": exp.category,
+            "amount": exp.amount,
+            "date": exp.expense_date,
+            "payment_mode": None,
+            "hosteler_id": None,
+            "hosteler_name": None,
+            "description": exp.description,
+            "receipt_url": exp.receipt_photo_url
+        })
+        
+    # Sort transactions by date descending
+    transactions.sort(key=lambda x: x["date"], reverse=True)
+    return transactions

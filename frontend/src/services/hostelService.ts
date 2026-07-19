@@ -1,5 +1,13 @@
 import store from '../redux/store';
-import { addHostel, editHostel, toggleHostelActive, setHostels } from '../redux/slices/hostelsSlice';
+import {
+  addHostel,
+  editHostel,
+  toggleHostelActive,
+  setHostels,
+  fetchHostelsStart,
+  fetchHostelsSuccess,
+  fetchHostelsFailure
+} from '../redux/slices/hostelsSlice';
 import { addLog } from '../redux/slices/logsSlice';
 import { setActiveHostel } from '../redux/slices/authSlice';
 import { Hostel } from '../types';
@@ -8,6 +16,7 @@ import { getStorageUrl } from './storageService';
 
 export const hostelService = {
   getHostels: async (): Promise<Hostel[]> => {
+    store.dispatch(fetchHostelsStart());
     try {
       const response = await apiClient.get('/tenants/hostels');
       const hostels: Hostel[] = response.data.map((h: any) => ({
@@ -26,10 +35,12 @@ export const hostelService = {
         monthlyIncome: h.monthly_income || 0,
         totalHostelers: h.total_hostelers || 0
       }));
-      store.dispatch(setHostels(hostels));
+      store.dispatch(fetchHostelsSuccess(hostels));
       return hostels;
     } catch (error: any) {
+      const errMsg = error.response?.data?.detail || error.message || 'Failed to get hostels';
       console.error('Failed to get hostels:', error);
+      store.dispatch(fetchHostelsFailure(errMsg));
       return store.getState().hostels.hostels;
     }
   },

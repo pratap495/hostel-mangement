@@ -67,6 +67,17 @@ export const authService = {
       }));
     }
     store.dispatch(logout());
+    
+    // Clear data slices on logout
+    const { setRooms } = require('../redux/slices/roomsSlice');
+    const { setHostelers } = require('../redux/slices/hostelersSlice');
+    const { setTransactions } = require('../redux/slices/financeSlice');
+    const { setHostels } = require('../redux/slices/hostelsSlice');
+
+    store.dispatch(setRooms([]));
+    store.dispatch(setHostelers([]));
+    store.dispatch(setTransactions([]));
+    store.dispatch(setHostels([]));
   },
 
   changePassword: async (oldPassword: string, newPassword: string): Promise<void> => {

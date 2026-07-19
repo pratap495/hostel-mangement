@@ -266,6 +266,9 @@ class HostelerEditRequest(BaseModel):
     is_active: Optional[bool] = None
     date_of_vacating: Optional[date] = None
     vacate_reason: Optional[str] = None
+    photo_key: Optional[str] = None
+    aadhaar_front_key: Optional[str] = None
+    aadhaar_back_key: Optional[str] = None
 
     model_config = {
         "json_schema_extra": {

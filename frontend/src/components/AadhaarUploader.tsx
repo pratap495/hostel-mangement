@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { colors, typography, radius } from '../theme';
 
 interface AadhaarUploaderProps {
@@ -14,10 +15,26 @@ export const AadhaarUploader: React.FC<AadhaarUploaderProps> = ({
   value,
   onChange,
 }) => {
-  const handleUpload = () => {
-    // Simulate image picker selection
-    const mockUri = 'https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=400&auto=format&fit=crop';
-    onChange(mockUri);
+  const handleUpload = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission needed', 'Allow gallery access to select document images.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        onChange(result.assets[0].uri);
+      }
+    } catch {
+      Alert.alert('Selection failed', 'Unable to pick an image. Please try again.');
+    }
   };
 
   const handleClear = (e: any) => {

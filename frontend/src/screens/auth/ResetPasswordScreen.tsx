@@ -22,12 +22,14 @@ import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { colors, typography, radius } from '../../theme';
 import PasswordInput from '../../components/PasswordInput';
 import PrimaryButton from '../../components/PrimaryButton';
+import { authService } from '../../services/authService';
 
 const { width, height } = Dimensions.get('window');
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ResetPassword'>;
 
 const resetSchema = yup.object().shape({
+  currentPassword: yup.string().required('Current temporary password is required'),
   password: yup.string().required('New password is required').min(6, 'Password must be at least 6 characters'),
   confirmPassword: yup.string().required('Confirm password is required').oneOf([yup.ref('password')], 'Passwords must match'),
 });
@@ -38,26 +40,27 @@ export default function ResetPasswordScreen({ route, navigation }: Props) {
 
   const { control, handleSubmit, formState: { errors } } = useForm({
     resolver: yupResolver(resetSchema),
-    defaultValues: { password: '', confirmPassword: '' },
+    defaultValues: { currentPassword: '', password: '', confirmPassword: '' },
   });
 
   const onSubmit = async (data: any) => {
     setLoading(true);
     try {
-      // Simulate API reset password
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await authService.changePassword(data.currentPassword, data.password);
       Alert.alert(
         'Password Updated',
         'Your password has been changed successfully. Please log in using your new password.',
         [
           {
-            text: 'OK',
-            onPress: () => navigation.navigate('LoginForm'),
+            text: 'Log In',
+            onPress: () => {
+              authService.logout();
+            },
           },
         ]
       );
-    } catch (err) {
-      Alert.alert('Error', 'Unable to update password. Try again later.');
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Unable to update password. Try again later.');
     } finally {
       setLoading(false);
     }
@@ -93,6 +96,22 @@ export default function ResetPasswordScreen({ route, navigation }: Props) {
 
           {/* Form */}
           <View style={styles.form}>
+            {/* Current/Temporary Password */}
+            <Controller
+              control={control}
+              name="currentPassword"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <PasswordInput
+                  label={undefined}
+                  placeholder="Enter Temporary/Current Password"
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  value={value}
+                  error={errors.currentPassword?.message}
+                />
+              )}
+            />
+
             {/* Password */}
             <Controller
               control={control}
@@ -100,7 +119,7 @@ export default function ResetPasswordScreen({ route, navigation }: Props) {
               render={({ field: { onChange, onBlur, value } }) => (
                 <PasswordInput
                   label={undefined}
-                  placeholder="Enter Password"
+                  placeholder="Enter New Password"
                   onBlur={onBlur}
                   onChangeText={onChange}
                   value={value}

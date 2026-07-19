@@ -37,7 +37,7 @@ class TenantRoutingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         path = request.url.path
         
-        if path in ["/health", "/api/v1/finance/health", "/api/v1/finance/docs", "/api/v1/finance/openapi.json"]:
+        if request.method == "OPTIONS" or path in ["/health", "/api/v1/finance/health", "/api/v1/finance/docs", "/api/v1/finance/openapi.json"]:
             return await call_next(request)
             
         hostel_id = request.headers.get("X-Hostel-ID")

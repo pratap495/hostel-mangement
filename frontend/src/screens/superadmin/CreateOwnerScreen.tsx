@@ -145,7 +145,7 @@ export default function CreateOwnerScreen({ route, navigation }: Props) {
     setLoading(true);
     try {
       let finalPhotoUrl = photoUrl;
-      if (photoUrl && (photoUrl.startsWith('file:') || photoUrl.startsWith('content:'))) {
+      if (photoUrl && !photoUrl.startsWith('http://') && !photoUrl.startsWith('https://')) {
         finalPhotoUrl = await storageService.uploadImage(photoUrl);
       }
 

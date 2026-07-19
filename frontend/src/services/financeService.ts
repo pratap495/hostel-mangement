@@ -4,6 +4,7 @@ import { payHostelerRent } from '../redux/slices/hostelersSlice';
 import { addLog } from '../redux/slices/logsSlice';
 import { Transaction } from '../types';
 import apiClient from './apiClient';
+import { storageService } from './storageService';
 
 export const financeService = {
   getTransactions: async (): Promise<Transaction[]> => {
@@ -44,14 +45,40 @@ export const financeService = {
         });
         createdId = response.data.id;
       } else {
+        // Map frontend categories to backend enum categories
+        let backendCategory = 'repairs';
+        const cat = tx.category.toLowerCase();
+        if (cat === 'groceries') {
+          backendCategory = 'groceries';
+        } else if (cat === 'utilities') {
+          backendCategory = 'electricity';
+        } else if (cat === 'salary') {
+          backendCategory = 'staff_salary';
+        } else if (cat === 'repairs') {
+          backendCategory = 'repairs';
+        } else if (cat === 'rent' || cat === 'others') {
+          backendCategory = 'maintenance';
+        }
+
+        // Upload receipt photo if provided
+        let receiptPhotoKey = null;
+        let finalReceiptUrl = tx.receiptUrl;
+        if (tx.receiptUrl && !tx.receiptUrl.startsWith('http://') && !tx.receiptUrl.startsWith('https://')) {
+          finalReceiptUrl = await storageService.uploadImage(tx.receiptUrl);
+          if (finalReceiptUrl.includes('/uploads/')) {
+            receiptPhotoKey = 'uploads/' + finalReceiptUrl.split('/uploads/')[1].split('?')[0];
+          }
+        }
+
         const response = await apiClient.post('/finance/expenses', {
-          category: tx.category,
+          category: backendCategory,
           amount: tx.amount,
           expense_date: tx.date,
           description: tx.description || '',
-          receipt_photo_key: null
+          receipt_photo_url: receiptPhotoKey
         });
         createdId = response.data.id;
+        tx.receiptUrl = finalReceiptUrl;
       }
 
       const createdTx: Transaction = {

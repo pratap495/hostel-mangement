@@ -86,6 +86,7 @@ def edit_hosteler_profile(db: Session, hosteler_id: str, request: HostelerEditRe
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hosteler profile not found.")
         
     update_data = request.dict(exclude_unset=True)
+    print("UPDATE DATA RECEIVED:", update_data, flush=True)
     
     if "is_active" in update_data and update_data["is_active"] is False:
         active_assignment = db.query(RoomAssignment).filter(
@@ -99,6 +100,13 @@ def edit_hosteler_profile(db: Session, hosteler_id: str, request: HostelerEditRe
         hosteler.date_of_vacating = update_data.get("date_of_vacating") or date.today()
         hosteler.vacate_reason = update_data.get("vacate_reason") or "Marked inactive by administrator."
         
+    if "photo_key" in update_data:
+        hosteler.photo_url = update_data.pop("photo_key")
+    if "aadhaar_front_key" in update_data:
+        hosteler.aadhaar_front_url = update_data.pop("aadhaar_front_key")
+    if "aadhaar_back_key" in update_data:
+        hosteler.aadhaar_back_url = update_data.pop("aadhaar_back_key")
+
     for key, value in update_data.items():
         setattr(hosteler, key, value)
         

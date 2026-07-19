@@ -44,8 +44,8 @@ class TenantRoutingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         path = request.url.path
         
-        # Bypass authentication/tenant checks on system endpoints
-        if path in ["/health", "/api/v1/rooms/health", "/api/v1/rooms/docs", "/api/v1/rooms/openapi.json"]:
+        # Bypass authentication/tenant checks on system endpoints and preflight OPTIONS requests
+        if request.method == "OPTIONS" or path in ["/health", "/api/v1/rooms/health", "/api/v1/rooms/docs", "/api/v1/rooms/openapi.json"]:
             return await call_next(request)
             
         # 1. Retrieve the X-Hostel-ID header

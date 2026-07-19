@@ -18,12 +18,11 @@ const hostelersSlice = createSlice({
   name: 'hostelers',
   initialState,
   reducers: {
-    addHosteler(state, action: PayloadAction<Omit<Hosteler, 'id'>>) {
-      const newId = `hosteler-${state.hostelers.length + 1}`;
-      state.hostelers.push({
-        ...action.payload,
-        id: newId,
-      });
+    addHosteler(state, action: PayloadAction<Hosteler>) {
+      const exists = state.hostelers.some(h => h.id === action.payload.id);
+      if (!exists) {
+        state.hostelers.push(action.payload);
+      }
     },
     editHosteler(state, action: PayloadAction<Hosteler>) {
       const index = state.hostelers.findIndex(h => h.id === action.payload.id);

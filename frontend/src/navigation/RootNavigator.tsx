@@ -17,9 +17,9 @@ import { notificationService } from '../services/notificationService';
 
 export const RootNavigator = () => {
   const dispatch = useAppDispatch();
-  const { isAuthenticated, activeRole, activeHostelId, user, loading, hasLoggedOut } = useAppSelector(state => state.auth);
+  const { isAuthenticated, activeRole, activeHostelId, user, loading, hasLoggedOut, forceReset } = useAppSelector(state => state.auth);
   const owners = useAppSelector(state => state.owners.owners);
-  const hostels = useAppSelector(state => state.hostels.hostels);
+  const { hostels, loading: hostelsLoading } = useAppSelector(state => state.hostels);
 
   const owner = React.useMemo(() => {
     if (!user || activeRole !== 'owner') return null;
@@ -39,7 +39,7 @@ export const RootNavigator = () => {
 
   // Automatically fetch live backend data on login or hostel switch
   React.useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !forceReset) {
       if (activeRole === 'super_admin') {
         hostelService.getHostels();
         ownerService.getOwners();
@@ -53,7 +53,7 @@ export const RootNavigator = () => {
         }
       }
     }
-  }, [isAuthenticated, activeRole, activeHostelId]);
+  }, [isAuthenticated, activeRole, activeHostelId, forceReset]);
 
   React.useEffect(() => {
     if (activeRole === 'owner' && assignedHostels.length === 1 && !activeHostelId) {
@@ -61,7 +61,7 @@ export const RootNavigator = () => {
     }
   }, [activeRole, assignedHostels, activeHostelId, dispatch]);
 
-  if (loading) {
+  if (loading || (isAuthenticated && activeRole === 'owner' && hostelsLoading)) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={colors.gold} />
@@ -71,6 +71,10 @@ export const RootNavigator = () => {
 
   if (!isAuthenticated) {
     return <AuthNavigator initialRouteName={hasLoggedOut ? 'LoginForm' : 'Splash'} />;
+  }
+
+  if (forceReset) {
+    return <AuthNavigator initialRouteName="ResetPassword" />;
   }
 
   if (activeRole === 'super_admin') {

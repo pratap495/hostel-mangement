@@ -18,12 +18,11 @@ const ownersSlice = createSlice({
   name: 'owners',
   initialState,
   reducers: {
-    addOwner(state, action: PayloadAction<Omit<Owner, 'id'>>) {
-      const newId = `owner-${state.owners.length + 1}`;
-      state.owners.push({
-        ...action.payload,
-        id: newId,
-      });
+    addOwner(state, action: PayloadAction<Owner>) {
+      const exists = state.owners.some(o => o.id === action.payload.id);
+      if (!exists) {
+        state.owners.push(action.payload);
+      }
     },
     editOwner(state, action: PayloadAction<Owner>) {
       const index = state.owners.findIndex(o => o.id === action.payload.id);

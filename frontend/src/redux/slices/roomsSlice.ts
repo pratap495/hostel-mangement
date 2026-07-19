@@ -18,13 +18,11 @@ const roomsSlice = createSlice({
   name: 'rooms',
   initialState,
   reducers: {
-    addRoom(state, action: PayloadAction<Omit<Room, 'id' | 'occupiedCount'>>) {
-      const newId = `room-${action.payload.hostelId}-${action.payload.roomNumber}`;
-      state.rooms.push({
-        ...action.payload,
-        id: newId,
-        occupiedCount: 0,
-      });
+    addRoom(state, action: PayloadAction<Room>) {
+      const exists = state.rooms.some(r => r.id === action.payload.id);
+      if (!exists) {
+        state.rooms.push(action.payload);
+      }
     },
     editRoom(state, action: PayloadAction<Room>) {
       const index = state.rooms.findIndex(r => r.id === action.payload.id);

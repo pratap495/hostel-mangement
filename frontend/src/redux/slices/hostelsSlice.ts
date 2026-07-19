@@ -33,11 +33,32 @@ const hostelsSlice = createSlice({
         hostel.isActive = !hostel.isActive;
       }
     },
+    fetchHostelsStart(state) {
+      state.loading = true;
+      state.error = null;
+    },
+    fetchHostelsSuccess(state, action: PayloadAction<Hostel[]>) {
+      state.hostels = action.payload;
+      state.loading = false;
+      state.error = null;
+    },
+    fetchHostelsFailure(state, action: PayloadAction<string>) {
+      state.loading = false;
+      state.error = action.payload;
+    },
     setHostels(state, action: PayloadAction<Hostel[]>) {
       state.hostels = action.payload;
     },
   },
 });
 
-export const { addHostel, editHostel, toggleHostelActive, setHostels } = hostelsSlice.actions;
+export const {
+  addHostel,
+  editHostel,
+  toggleHostelActive,
+  setHostels,
+  fetchHostelsStart,
+  fetchHostelsSuccess,
+  fetchHostelsFailure
+} = hostelsSlice.actions;
 export default hostelsSlice.reducer;

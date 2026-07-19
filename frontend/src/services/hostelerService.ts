@@ -5,6 +5,7 @@ import { addLog } from '../redux/slices/logsSlice';
 import { addNotification } from '../redux/slices/notificationsSlice';
 import { Hosteler } from '../types';
 import apiClient from './apiClient';
+import { storageService, getStorageUrl } from './storageService';
 
 export const hostelerService = {
   getHostelers: async (): Promise<Hosteler[]> => {
@@ -43,6 +44,33 @@ export const hostelerService = {
 
   createHosteler: async (hosteler: Omit<Hosteler, 'id'>): Promise<void> => {
     try {
+      const getKeyFromUrl = (url: string) => {
+        if (!url) return null;
+        if (url.includes('/uploads/')) {
+          return 'uploads/' + url.split('/uploads/')[1].split('?')[0];
+        }
+        return url;
+      };
+
+      // Upload files to S3/MinIO
+      let photoUrl = hosteler.photoUrl || '';
+      let aadhaarFrontUrl = hosteler.aadhaarFrontUrl || '';
+      let aadhaarBackUrl = hosteler.aadhaarBackUrl || '';
+
+      if (photoUrl && !photoUrl.startsWith('http://') && !photoUrl.startsWith('https://')) {
+        photoUrl = await storageService.uploadImage(photoUrl);
+      }
+      if (aadhaarFrontUrl && !aadhaarFrontUrl.startsWith('http://') && !aadhaarFrontUrl.startsWith('https://')) {
+        aadhaarFrontUrl = await storageService.uploadImage(aadhaarFrontUrl);
+      }
+      if (aadhaarBackUrl && !aadhaarBackUrl.startsWith('http://') && !aadhaarBackUrl.startsWith('https://')) {
+        aadhaarBackUrl = await storageService.uploadImage(aadhaarBackUrl);
+      }
+
+      const photoKey = getKeyFromUrl(photoUrl);
+      const aadhaarFrontKey = getKeyFromUrl(aadhaarFrontUrl);
+      const aadhaarBackKey = getKeyFromUrl(aadhaarBackUrl);
+
       // 1. Onboard Hosteler profile in backend
       const hostelerRes = await apiClient.post('/hostelers', {
         name: hosteler.name,
@@ -52,9 +80,9 @@ export const hostelerService = {
         emergency_contact_name: hosteler.emergencyContactName,
         emergency_contact_phone: hosteler.emergencyContactPhone,
         date_of_joining: hosteler.joiningDate,
-        photo_key: null,
-        aadhaar_front_key: null,
-        aadhaar_back_key: null
+        photo_key: photoKey,
+        aadhaar_front_key: aadhaarFrontKey,
+        aadhaar_back_key: aadhaarBackKey
       });
 
       const hostelerId = hostelerRes.data.id;
@@ -79,6 +107,9 @@ export const hostelerService = {
       // 4. Update local Redux state
       const newHosteler: Hosteler = {
         ...hosteler,
+        photoUrl: photoUrl || undefined,
+        aadhaarFrontUrl: aadhaarFrontUrl || undefined,
+        aadhaarBackUrl: aadhaarBackUrl || undefined,
         id: hostelerId,
         bedNumber
       };
@@ -115,16 +146,53 @@ export const hostelerService = {
 
   updateHosteler: async (hosteler: Hosteler): Promise<void> => {
     try {
+      const getKeyFromUrl = (url: string) => {
+        if (!url) return null;
+        if (url.includes('/uploads/')) {
+          return 'uploads/' + url.split('/uploads/')[1].split('?')[0];
+        }
+        return url;
+      };
+
+      // Upload files to S3/MinIO
+      let photoUrl = hosteler.photoUrl || '';
+      let aadhaarFrontUrl = hosteler.aadhaarFrontUrl || '';
+      let aadhaarBackUrl = hosteler.aadhaarBackUrl || '';
+
+      if (photoUrl && !photoUrl.startsWith('http://') && !photoUrl.startsWith('https://')) {
+        photoUrl = await storageService.uploadImage(photoUrl);
+      }
+      if (aadhaarFrontUrl && !aadhaarFrontUrl.startsWith('http://') && !aadhaarFrontUrl.startsWith('https://')) {
+        aadhaarFrontUrl = await storageService.uploadImage(aadhaarFrontUrl);
+      }
+      if (aadhaarBackUrl && !aadhaarBackUrl.startsWith('http://') && !aadhaarBackUrl.startsWith('https://')) {
+        aadhaarBackUrl = await storageService.uploadImage(aadhaarBackUrl);
+      }
+
+      const photoKey = getKeyFromUrl(photoUrl);
+      const aadhaarFrontKey = getKeyFromUrl(aadhaarFrontUrl);
+      const aadhaarBackKey = getKeyFromUrl(aadhaarBackUrl);
+
       await apiClient.put(`/hostelers/${hosteler.id}`, {
         name: hosteler.name,
         phone: hosteler.phone,
         email: hosteler.email || null,
         permanent_address: hosteler.permanentAddress,
         emergency_contact_name: hosteler.emergencyContactName,
-        emergency_contact_phone: hosteler.emergencyContactPhone
+        emergency_contact_phone: hosteler.emergencyContactPhone,
+        photo_key: photoKey,
+        aadhaar_front_key: aadhaarFrontKey,
+        aadhaar_back_key: aadhaarBackKey
       });
 
-      store.dispatch(editHosteler(hosteler));
+      const updatedHosteler: Hosteler = {
+        ...hosteler,
+        photoUrl: photoUrl || undefined,
+        aadhaarFrontUrl: aadhaarFrontUrl || undefined,
+        aadhaarBackUrl: aadhaarBackUrl || undefined,
+      };
+
+      store.dispatch(editHosteler(updatedHosteler));
 
       const owner = store.getState().auth.user;
       const hostel = store.getState().hostels.hostels.find(h => h.id === hosteler.hostelId);

@@ -32,7 +32,7 @@ type Props = NativeStackScreenProps<HostelerStackParamList, 'AddHosteler'>;
 const hostelerSchema = yup.object().shape({
   name: yup.string().required('Full name is required'),
   phone: yup.string().required('Phone number is required').matches(/^[6-9]\d{9}$/, 'Enter a valid 10-digit mobile number'),
-  email: yup.string().required('Email is required').email('Enter a valid email address'),
+  email: yup.string().email('Enter a valid email address').nullable().optional(),
   permanentAddress: yup.string().required('Permanent address is required'),
   emergencyContactName: yup.string().required('Emergency contact name is required'),
   emergencyContactPhone: yup.string().required('Emergency phone is required').matches(/^[6-9]\d{9}$/, 'Enter a valid 10-digit mobile number'),
@@ -136,6 +136,11 @@ export default function AddHostelerScreen({ route, navigation }: Props) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onInvalid = (errors: any) => {
+    console.log("FORM VALIDATION ERRORS:", errors);
+    Alert.alert('Validation Error', 'Please fill in all required fields correctly.');
   };
 
   return (
@@ -314,7 +319,7 @@ export default function AddHostelerScreen({ route, navigation }: Props) {
 
             <PrimaryButton
               title={isEditMode ? 'Save Changes' : 'Register Resident'}
-              onPress={handleSubmit(onSubmit)}
+              onPress={handleSubmit(onSubmit, onInvalid)}
               loading={loading}
               style={styles.submitBtn}
             />

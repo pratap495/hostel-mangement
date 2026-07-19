@@ -38,7 +38,7 @@ class TenantRoutingMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         
         # Bypass WS route so it can pass headers in query params or connect directly
-        if path in ["/health", "/api/v1/notifications/health", "/api/v1/notifications/docs", "/api/v1/notifications/openapi.json"] or "/ws/" in path:
+        if request.method == "OPTIONS" or path in ["/health", "/api/v1/notifications/health", "/api/v1/notifications/docs", "/api/v1/notifications/openapi.json"] or "/ws/" in path:
             return await call_next(request)
             
         hostel_id = request.headers.get("X-Hostel-ID")

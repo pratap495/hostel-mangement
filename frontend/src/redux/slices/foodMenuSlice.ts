@@ -84,7 +84,7 @@ interface FoodMenuState {
 }
 
 const initialState: FoodMenuState = {
-  entries: mockFoodMenu,
+  entries: [],
   loading: false,
   error: null,
 };

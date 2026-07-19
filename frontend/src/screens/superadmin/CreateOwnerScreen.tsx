@@ -20,6 +20,7 @@ import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as ImagePicker from 'expo-image-picker';
 
+import { storageService } from '../../services/storageService';
 import { useAppSelector } from '../../redux/store';
 import { OwnerStackParamList } from '../../navigation/SuperAdminNavigator';
 import { colors, typography, radius } from '../../theme';
@@ -104,7 +105,7 @@ export default function CreateOwnerScreen({ route, navigation }: Props) {
     if (photoUrl) {
       options.push({ text: 'Remove Photo', onPress: () => setPhotoUrl(null), style: 'destructive' as const });
     }
-    options.push({ text: 'Cancel', onPress: () => {}, style: 'cancel' as const });
+    options.push({ text: 'Cancel', onPress: () => { }, style: 'cancel' as const });
 
     Alert.alert(
       'Profile Photo',
@@ -121,7 +122,7 @@ export default function CreateOwnerScreen({ route, navigation }: Props) {
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -143,6 +144,11 @@ export default function CreateOwnerScreen({ route, navigation }: Props) {
   const onSubmit = async (data: any) => {
     setLoading(true);
     try {
+      let finalPhotoUrl = photoUrl;
+      if (photoUrl && (photoUrl.startsWith('file:') || photoUrl.startsWith('content:'))) {
+        finalPhotoUrl = await storageService.uploadImage(photoUrl);
+      }
+
       if (isEditMode && existingOwner) {
         await ownerService.updateOwner({
           ...existingOwner,
@@ -150,7 +156,7 @@ export default function CreateOwnerScreen({ route, navigation }: Props) {
           email: data.email,
           phone: data.phone,
           hostelsAssigned: selectedHostels,
-          photoUrl: photoUrl,
+          photoUrl: finalPhotoUrl,
         });
         Alert.alert('Success', 'Owner profile updated successfully.');
       } else {
@@ -161,7 +167,7 @@ export default function CreateOwnerScreen({ route, navigation }: Props) {
           password: data.password,
           hostelsAssigned: selectedHostels,
           isActive: true,
-          photoUrl: photoUrl,
+          photoUrl: finalPhotoUrl,
         });
         Alert.alert('Success', 'New Owner account created successfully.');
       }
@@ -215,7 +221,7 @@ export default function CreateOwnerScreen({ route, navigation }: Props) {
             <View style={styles.avatarUploaderContainer}>
               <TouchableOpacity
                 style={styles.avatarUploader}
-                onPress={handlePickPhoto}
+                onPress={performPickPhoto}
                 activeOpacity={0.8}
               >
                 <OwnerAvatar

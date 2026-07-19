@@ -5,12 +5,12 @@ from typing import List
 from app.core.database import get_admin_db
 from app.core.security import get_current_user
 from app.schemas.api_schemas import (
-    OwnerCreateRequest, OwnerCreateResponse, 
+    OwnerCreateRequest, OwnerCreateResponse, OwnerUpdateRequest,
     StatusChangeRequest, HostelCreateRequest, HostelCreateResponse, HostelUpdateRequest,
     SuccessResponse, ErrorResponse, OwnerDetailsResponse, HostelDetailsResponse, DashboardStatsResponse
 )
 from app.controllers.tenant_controller import (
-    create_owner_account, update_owner_status, 
+    create_owner_account, update_owner_status, update_owner_account,
     soft_delete_owner_account, provision_hostel_and_db, log_activity,
     get_owners_list, get_hostels_list, update_hostel_details, get_super_admin_stats
 )
@@ -72,13 +72,38 @@ def create_owner(
     }
 )
 def update_owner(
-    owner_id: UUID,
+    owner_id: str,
     request: StatusChangeRequest,
     db: Session = Depends(get_admin_db),
     admin: dict = Depends(require_super_admin)
 ):
     """Activate, deactivate, or trigger password reset on Owner dashboard access (Super Admin only)."""
     return update_owner_status(db, str(owner_id), request)
+
+@router.put(
+    "/owners/{owner_id}",
+    response_model=SuccessResponse,
+    responses={
+        200: {
+            "model": SuccessResponse,
+            "description": "Successful Response",
+            "content": {"application/json": {"example": {"message": "Owner profile updated successfully."}}}
+        },
+        404: {
+            "model": ErrorResponse,
+            "description": "Not Found Error"
+        }
+    }
+)
+def edit_owner_profile(
+    owner_id: str,
+    request: OwnerUpdateRequest,
+    db: Session = Depends(get_admin_db),
+    admin: dict = Depends(require_super_admin)
+):
+    """Update Owner profile details (Super Admin only)."""
+    update_owner_account(db, str(owner_id), request)
+    return {"message": "Owner profile updated successfully."}
 
 @router.delete(
     "/owners/{owner_id}", 
@@ -97,7 +122,7 @@ def update_owner(
     }
 )
 def delete_owner(
-    owner_id: UUID,
+    owner_id: str,
     db: Session = Depends(get_admin_db),
     admin: dict = Depends(require_super_admin)
 ):
@@ -141,7 +166,7 @@ def create_hostel(
     }
 )
 def update_hostel(
-    hostel_id: UUID,
+    hostel_id: str,
     request: HostelUpdateRequest,
     db: Session = Depends(get_admin_db),
     admin: dict = Depends(require_super_admin)

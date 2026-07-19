@@ -25,6 +25,7 @@ class Owner(Base):
     is_deleted = Column(Boolean, default=False)
     deleted_at = Column(DateTime, nullable=True)
     force_password_reset = Column(Boolean, default=True)
+    photo_url = Column(String(512), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
 class Hostel(Base):

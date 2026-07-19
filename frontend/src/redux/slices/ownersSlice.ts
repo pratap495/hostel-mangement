@@ -9,7 +9,7 @@ interface OwnersState {
 }
 
 const initialState: OwnersState = {
-  owners: mockOwners,
+  owners: [],
   loading: false,
   error: null,
 };

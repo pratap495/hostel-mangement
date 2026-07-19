@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.models.db_models import Owner, Hostel, OwnerHostel, TenantDatabase, OwnerActivityLog
-from app.schemas.api_schemas import OwnerCreateRequest, StatusChangeRequest, HostelCreateRequest, HostelUpdateRequest
+from app.schemas.api_schemas import OwnerCreateRequest, StatusChangeRequest, HostelCreateRequest, HostelUpdateRequest, OwnerUpdateRequest
 
 from app.core.security import get_password_hash
 from app.core.config import settings
@@ -56,7 +56,8 @@ def create_owner_account(db: Session, request: OwnerCreateRequest) -> dict:
         phone=request.phone,
         password_hash=hashed_pass,
         force_password_reset=True,  # Always force reset on first login regardless of who set the password
-        is_active=True
+        is_active=True,
+        photo_url=request.photo_url
     )
     
     db.add(new_owner)
@@ -71,7 +72,12 @@ def create_owner_account(db: Session, request: OwnerCreateRequest) -> dict:
 
 def update_owner_status(db: Session, owner_id: str, request: StatusChangeRequest) -> dict:
     """Suspend, reactivate, or trigger password reset on Owner account."""
-    owner = db.query(Owner).filter(Owner.id == owner_id, Owner.is_deleted == False).first()
+    try:
+        owner_uuid = uuid.UUID(owner_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found")
+
+    owner = db.query(Owner).filter(Owner.id == owner_uuid, Owner.is_deleted == False).first()
     if not owner:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found")
         
@@ -97,9 +103,40 @@ def update_owner_status(db: Session, owner_id: str, request: StatusChangeRequest
             "message": "Temporary password reset completed."
         }
 
+def update_owner_account(db: Session, owner_id: str, request: OwnerUpdateRequest) -> dict:
+    """Update Owner name, email, phone, and photo_url details in the database."""
+    try:
+        owner_uuid = uuid.UUID(owner_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found")
+
+    owner = db.query(Owner).filter(Owner.id == owner_uuid, Owner.is_deleted == False).first()
+    if not owner:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found")
+
+    email_clean = request.email.lower()
+    if email_clean != owner.email:
+        # Check if email is taken
+        existing = db.query(Owner).filter(Owner.email == email_clean, Owner.is_deleted == False).first()
+        if existing:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email is already in use by another owner account.")
+
+    owner.name = request.name
+    owner.email = email_clean
+    owner.phone = request.phone
+    owner.photo_url = request.photo_url
+
+    db.commit()
+    return {"owner_id": owner.id, "status": "updated"}
+
 def soft_delete_owner_account(db: Session, owner_id: str) -> dict:
     """Soft delete an Owner account and flag its timestamp."""
-    owner = db.query(Owner).filter(Owner.id == owner_id, Owner.is_deleted == False).first()
+    try:
+        owner_uuid = uuid.UUID(owner_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found")
+
+    owner = db.query(Owner).filter(Owner.id == owner_uuid, Owner.is_deleted == False).first()
     if not owner:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found")
         
@@ -197,7 +234,12 @@ def provision_hostel_and_db(db: Session, request: HostelCreateRequest) -> dict:
 
 def update_hostel_details(db: Session, hostel_id: str, request: HostelUpdateRequest) -> dict:
     """Update hostel metadata details and reassign/set owner mapping."""
-    hostel = db.query(Hostel).filter(Hostel.id == uuid.UUID(hostel_id), Hostel.is_deleted == False).first()
+    try:
+        hostel_uuid = uuid.UUID(hostel_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hostel not found")
+
+    hostel = db.query(Hostel).filter(Hostel.id == hostel_uuid, Hostel.is_deleted == False).first()
     if not hostel:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hostel not found")
         
@@ -232,7 +274,8 @@ def get_owners_list(db: Session) -> list:
             "name": owner.name,
             "phone": owner.phone,
             "is_active": owner.is_active,
-            "hostels_assigned": hostels_assigned
+            "hostels_assigned": hostels_assigned,
+            "photo_url": owner.photo_url
         })
     return results
 

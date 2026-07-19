@@ -9,7 +9,7 @@ interface HostelersState {
 }
 
 const initialState: HostelersState = {
-  hostelers: mockHostelers,
+  hostelers: [],
   loading: false,
   error: null,
 };

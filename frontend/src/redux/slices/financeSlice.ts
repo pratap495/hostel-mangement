@@ -9,7 +9,7 @@ interface FinanceState {
 }
 
 const initialState: FinanceState = {
-  transactions: mockTransactions,
+  transactions: [],
   loading: false,
   error: null,
 };

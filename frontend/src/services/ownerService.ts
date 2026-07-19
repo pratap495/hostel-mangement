@@ -15,7 +15,7 @@ export const ownerService = {
         phone: o.phone,
         isActive: o.is_active,
         hostelsAssigned: o.hostels_assigned,
-        photoUrl: null
+        photoUrl: o.photo_url || null
       }));
       store.dispatch(setOwners(owners));
       return owners;
@@ -31,7 +31,8 @@ export const ownerService = {
         name: owner.name,
         email: owner.email,
         phone: owner.phone,
-        password: owner.password
+        password: owner.password,
+        photo_url: owner.photoUrl
       });
       
       const createdOwner: Owner = {
@@ -41,7 +42,7 @@ export const ownerService = {
         phone: owner.phone,
         isActive: true,
         hostelsAssigned: owner.hostelsAssigned,
-        photoUrl: null
+        photoUrl: owner.photoUrl || null
       };
 
       store.dispatch(addOwner(createdOwner));
@@ -59,14 +60,26 @@ export const ownerService = {
   },
 
   updateOwner: async (owner: Owner): Promise<void> => {
-    // Note: Central admin table holds profile configurations. Update locally in Redux.
-    store.dispatch(editOwner(owner));
-    const admin = store.getState().auth.user;
-    store.dispatch(addLog({
-      userId: admin?.id || 'system',
-      userName: admin?.name || 'Admin',
-      action: `Updated Owner profile: ${owner.name}`,
-    }));
+    try {
+      await apiClient.put(`/tenants/owners/${owner.id}`, {
+        name: owner.name,
+        email: owner.email,
+        phone: owner.phone,
+        photo_url: owner.photoUrl
+      });
+      
+      store.dispatch(editOwner(owner));
+      
+      const admin = store.getState().auth.user;
+      store.dispatch(addLog({
+        userId: admin?.id || 'system',
+        userName: admin?.name || 'Admin',
+        action: `Updated Owner profile: ${owner.name}`,
+      }));
+    } catch (error: any) {
+      const errMsg = error.response?.data?.detail || error.message || 'Failed to update owner';
+      throw new Error(errMsg);
+    }
   },
 
   toggleOwnerStatus: async (ownerId: string): Promise<void> => {

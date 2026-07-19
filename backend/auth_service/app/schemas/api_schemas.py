@@ -83,6 +83,7 @@ class OwnerCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     phone: str = Field(..., min_length=10, max_length=20)
     password: Optional[str] = None
+    photo_url: Optional[str] = None
 
     model_config = {
         "json_schema_extra": {
@@ -91,6 +92,22 @@ class OwnerCreateRequest(BaseModel):
                 "name": "Alex Mercer",
                 "phone": "+919900112233",
                 "password": "SecurePassword123"
+            }
+        }
+    }
+
+class OwnerUpdateRequest(BaseModel):
+    email: EmailStr
+    name: str = Field(..., min_length=1, max_length=100)
+    phone: str = Field(..., min_length=10, max_length=20)
+    photo_url: Optional[str] = None
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "email": "alex.mercer@hostelmint.com",
+                "name": "Alex Mercer",
+                "phone": "+919900112233"
             }
         }
     }
@@ -288,6 +305,7 @@ class OwnerDetailsResponse(BaseModel):
     phone: str
     is_active: bool
     hostels_assigned: List[UUID]
+    photo_url: Optional[str] = None
 
     model_config = {
         "from_attributes": True,
@@ -344,6 +362,7 @@ class UserProfileResponse(BaseModel):
     phone: str
     role: str
     hostels_assigned: List[UUID]
+    photo_url: Optional[str] = None
 
     model_config = {
         "json_schema_extra": {

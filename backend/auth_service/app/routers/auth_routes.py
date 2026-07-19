@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_admin_db
 from app.core.security import get_current_user
@@ -185,6 +185,7 @@ def get_me(
         "name": owner.name,
         "phone": owner.phone,
         "role": "owner",
-        "hostels_assigned": hostels_assigned
+        "hostels_assigned": hostels_assigned,
+        "photo_url": owner.photo_url
     }
 
